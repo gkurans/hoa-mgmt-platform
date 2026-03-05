@@ -102,7 +102,7 @@ export default function ProfileScreen() {
         <Card style={styles.aboutCard}>
           <Text style={styles.sectionTitle}>About</Text>
           <Text style={styles.aboutText}>
-            Kerala HOA Management System for Residents Association. Manage billing, utilities allocation, payments, and more.
+            Unity Towers Property Association Management System. Manage billing, utilities allocation, payments, and more for our community.
           </Text>
           <View style={styles.versionRow}>
             <Text style={styles.versionLabel}>Version</Text>
