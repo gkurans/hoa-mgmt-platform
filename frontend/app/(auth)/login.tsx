@@ -52,10 +52,10 @@ export default function LoginScreen() {
         >
           <View style={styles.header}>
             <View style={styles.iconContainer}>
-              <Ionicons name="home" size={48} color="#2563eb" />
+              <Ionicons name="business" size={48} color="#2563eb" />
             </View>
-            <Text style={styles.title}>Kerala HOA</Text>
-            <Text style={styles.subtitle}>Residents Association Management</Text>
+            <Text style={styles.title}>Unity Towers</Text>
+            <Text style={styles.subtitle}>Property Association Management</Text>
           </View>
 
           <View style={styles.form}>
