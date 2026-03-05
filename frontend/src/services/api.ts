@@ -40,6 +40,8 @@ export const createCategory = (data: any) => api.post('/categories', data);
 // Annual Setup
 export const getAnnualSetups = () => api.get('/billing/annual-setup');
 export const createAnnualSetup = (data: any) => api.post('/billing/annual-setup', data);
+export const updateAnnualSetup = (id: string, data: any) => api.put(`/billing/annual-setup/${id}`, data);
+export const deleteAnnualSetup = (id: string) => api.delete(`/billing/annual-setup/${id}`);
 export const approveSetup = (id: string) => api.post(`/billing/annual-setup/${id}/approve`);
 export const postCharges = (id: string, monthlySplit: boolean = false) =>
   api.post(`/billing/annual-setup/${id}/post?monthly_split=${monthlySplit}`);
