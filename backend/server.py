@@ -100,10 +100,23 @@ class UnitResponse(BaseModel):
     created_at: datetime
 
 class UnitUpdate(BaseModel):
+    unit_id: Optional[str] = None
     display_name: Optional[str] = None
     status: Optional[str] = None
     primary_owner_id: Optional[str] = None
     opening_balance: Optional[float] = None
+
+# Owner Management Models
+class OwnerCreate(BaseModel):
+    email: EmailStr
+    name: str
+    phone: str = ""
+    password: str = ""  # If empty, generate a random one
+
+class OwnerUpdate(BaseModel):
+    email: Optional[EmailStr] = None
+    name: Optional[str] = None
+    phone: Optional[str] = None
 
 # Owner Assignment
 class OwnerAssignment(BaseModel):
