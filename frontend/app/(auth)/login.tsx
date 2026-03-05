@@ -105,7 +105,7 @@ export default function LoginScreen() {
 
             <View style={styles.demoContainer}>
               <Text style={styles.demoText}>Demo Credentials:</Text>
-              <Text style={styles.demoCredentials}>admin@keralahoa.com / admin123</Text>
+              <Text style={styles.demoCredentials}>admin@unitytowers.com / admin123</Text>
             </View>
           </View>
         </ScrollView>
