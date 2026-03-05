@@ -159,6 +159,57 @@ export default function BillingScreen() {
     }
   };
 
+  const openEditSetupModal = (setup: AnnualSetup) => {
+    setSelectedSetup(setup);
+    setEditSetup({
+      water_total: setup.water_total.toString(),
+      electricity_total: setup.electricity_total.toString(),
+      notes: setup.notes || '',
+    });
+    setShowEditSetupModal(true);
+  };
+
+  const handleEditSetup = async () => {
+    if (!selectedSetup || !editSetup.water_total || !editSetup.electricity_total) {
+      showMessage('Error', 'Please enter Water and Electricity totals', true);
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await updateAnnualSetup(selectedSetup.id, {
+        water_total: parseFloat(editSetup.water_total),
+        electricity_total: parseFloat(editSetup.electricity_total),
+        notes: editSetup.notes,
+      });
+      setShowEditSetupModal(false);
+      showMessage('Success', 'Annual setup updated successfully!');
+      fetchData();
+    } catch (error: any) {
+      showMessage('Error', error.response?.data?.detail || 'Failed to update setup', true);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteSetup = (setup: AnnualSetup) => {
+    showConfirm(
+      'Delete Setup',
+      `Are you sure you want to delete the ${setup.year} annual setup?`,
+      async () => {
+        setIsSubmitting(true);
+        try {
+          await deleteAnnualSetup(setup.id);
+          showMessage('Success', `Annual setup for ${setup.year} deleted successfully!`);
+          fetchData();
+        } catch (error: any) {
+          showMessage('Error', error.response?.data?.detail || 'Failed to delete setup', true);
+        } finally {
+          setIsSubmitting(false);
+        }
+      }
+    );
+  };
+
   const handleApprove = async (id: string) => {
     setIsSubmitting(true);
     try {
@@ -173,16 +224,22 @@ export default function BillingScreen() {
   };
 
   const handlePost = async (id: string) => {
-    setIsSubmitting(true);
-    try {
-      const result = await postCharges(id, false);
-      showMessage('Success', result.data.message);
-      fetchData();
-    } catch (error: any) {
-      showMessage('Error', error.response?.data?.detail || 'Failed to post', true);
-    } finally {
-      setIsSubmitting(false);
-    }
+    showConfirm(
+      'Post Charges',
+      'This will create charges for all units. Continue?',
+      async () => {
+        setIsSubmitting(true);
+        try {
+          const result = await postCharges(id, false);
+          showMessage('Success', result.data.message);
+          fetchData();
+        } catch (error: any) {
+          showMessage('Error', error.response?.data?.detail || 'Failed to post', true);
+        } finally {
+          setIsSubmitting(false);
+        }
+      }
+    );
   };
 
   const handleRecordPayment = async () => {
