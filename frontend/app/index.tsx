@@ -1,16 +1,25 @@
-import { Text, View, StyleSheet, Image } from "react-native";
-
-const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+import React, { useEffect } from 'react';
+import { View, StyleSheet } from 'react-native';
+import { router } from 'expo-router';
+import { useAuthStore } from '../src/store/authStore';
+import LoadingSpinner from '../src/components/LoadingSpinner';
 
 export default function Index() {
-  console.log(EXPO_PUBLIC_BACKEND_URL, "EXPO_PUBLIC_BACKEND_URL");
+  const { isLoading, isAuthenticated } = useAuthStore();
+
+  useEffect(() => {
+    if (!isLoading) {
+      if (isAuthenticated) {
+        router.replace('/(tabs)/dashboard');
+      } else {
+        router.replace('/(auth)/login');
+      }
+    }
+  }, [isLoading, isAuthenticated]);
 
   return (
     <View style={styles.container}>
-      <Image
-        source={require("../assets/images/app-image.png")}
-        style={styles.image}
-      />
+      <LoadingSpinner message="Loading..." />
     </View>
   );
 }
@@ -18,13 +27,6 @@ export default function Index() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0c0c0c",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  image: {
-    width: "100%",
-    height: "100%",
-    resizeMode: "contain",
+    backgroundColor: '#f8fafc',
   },
 });
