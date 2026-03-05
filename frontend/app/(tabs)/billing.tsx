@@ -403,7 +403,12 @@ export default function BillingScreen() {
               placeholder="Any notes..."
               multiline
             />
-            <Button title="Calculate & Create" onPress={handleCreateSetup} />
+            <Button 
+              title="Calculate & Create" 
+              onPress={handleCreateSetup} 
+              loading={isSubmitting}
+              disabled={isSubmitting}
+            />
           </View>
         </View>
       </Modal>
@@ -470,7 +475,38 @@ export default function BillingScreen() {
               onChangeText={(text) => setNewPayment({ ...newPayment, reference: text })}
               placeholder="Transaction reference"
             />
-            <Button title="Record Payment" onPress={handleRecordPayment} />
+            <Button 
+              title="Record Payment" 
+              onPress={handleRecordPayment} 
+              loading={isSubmitting}
+              disabled={isSubmitting}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Result Modal for Web */}
+      <Modal
+        visible={showResultModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowResultModal(false)}
+      >
+        <View style={styles.resultModalOverlay}>
+          <View style={styles.resultModalContent}>
+            <Ionicons 
+              name={resultMessage.isError ? "alert-circle" : "checkmark-circle"} 
+              size={48} 
+              color={resultMessage.isError ? "#dc2626" : "#16a34a"} 
+            />
+            <Text style={styles.resultModalTitle}>{resultMessage.title}</Text>
+            <Text style={styles.resultModalMessage}>{resultMessage.message}</Text>
+            <Pressable 
+              style={[styles.resultModalButton, { backgroundColor: resultMessage.isError ? '#dc2626' : '#16a34a' }]}
+              onPress={() => setShowResultModal(false)}
+            >
+              <Text style={styles.resultModalButtonText}>OK</Text>
+            </Pressable>
           </View>
         </View>
       </Modal>
