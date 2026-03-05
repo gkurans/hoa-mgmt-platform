@@ -8,10 +8,12 @@ import {
   TouchableOpacity,
   Modal,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { getUnits, getOwners, assignOwner, createUnit } from '../../src/services/api';
+import { getUnits, getOwners, assignOwner, createUnit, updateUnit, createOwner } from '../../src/services/api';
 import Card from '../../src/components/Card';
 import Button from '../../src/components/Button';
 import Input from '../../src/components/Input';
@@ -45,10 +47,27 @@ export default function UnitsScreen() {
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showOwnerModal, setShowOwnerModal] = useState(false);
+  const [activeTab, setActiveTab] = useState<'units' | 'owners'>('units');
+  
   const [newUnit, setNewUnit] = useState({
     unit_id: '',
     unit_type: 'condo',
     display_name: '',
+  });
+
+  const [editUnit, setEditUnit] = useState({
+    unit_id: '',
+    display_name: '',
+    status: 'owned',
+  });
+
+  const [newOwner, setNewOwner] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    password: '',
   });
 
   const fetchData = useCallback(async () => {
@@ -101,12 +120,54 @@ export default function UnitsScreen() {
     }
   };
 
+  const handleEditUnit = async () => {
+    if (!selectedUnit) return;
+    try {
+      await updateUnit(selectedUnit.id, {
+        unit_id: editUnit.unit_id,
+        display_name: editUnit.display_name,
+        status: editUnit.status,
+      });
+      Alert.alert('Success', 'Unit updated successfully');
+      setShowEditModal(false);
+      fetchData();
+    } catch (error: any) {
+      Alert.alert('Error', error.response?.data?.detail || 'Failed to update unit');
+    }
+  };
+
+  const handleCreateOwner = async () => {
+    if (!newOwner.name || !newOwner.email) {
+      Alert.alert('Error', 'Please enter name and email');
+      return;
+    }
+    try {
+      await createOwner(newOwner);
+      Alert.alert('Success', `Owner created successfully!\nDefault password: ${newOwner.password || 'Welcome123'}`);
+      setShowOwnerModal(false);
+      setNewOwner({ name: '', email: '', phone: '', password: '' });
+      fetchData();
+    } catch (error: any) {
+      Alert.alert('Error', error.response?.data?.detail || 'Failed to create owner');
+    }
+  };
+
+  const openEditModal = (unit: Unit) => {
+    setSelectedUnit(unit);
+    setEditUnit({
+      unit_id: unit.unit_id,
+      display_name: unit.display_name,
+      status: unit.status,
+    });
+    setShowEditModal(true);
+  };
+
   const formatCurrency = (amount: number) => {
     return `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
   };
 
   if (loading) {
-    return <LoadingSpinner message="Loading units..." />;
+    return <LoadingSpinner message="Loading..." />;
   }
 
   const condos = units.filter(u => u.unit_type === 'condo');
@@ -115,12 +176,30 @@ export default function UnitsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Units Management</Text>
+        <Text style={styles.title}>Management</Text>
         <TouchableOpacity
           style={styles.addButton}
-          onPress={() => setShowCreateModal(true)}
+          onPress={() => activeTab === 'units' ? setShowCreateModal(true) : setShowOwnerModal(true)}
         >
           <Ionicons name="add" size={24} color="#fff" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Tabs */}
+      <View style={styles.tabs}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'units' && styles.tabActive]}
+          onPress={() => setActiveTab('units')}
+        >
+          <Ionicons name="business" size={20} color={activeTab === 'units' ? '#fff' : '#64748b'} />
+          <Text style={[styles.tabText, activeTab === 'units' && styles.tabTextActive]}>Units</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'owners' && styles.tabActive]}
+          onPress={() => setActiveTab('owners')}
+        >
+          <Ionicons name="people" size={20} color={activeTab === 'owners' ? '#fff' : '#64748b'} />
+          <Text style={[styles.tabText, activeTab === 'owners' && styles.tabTextActive]}>Owners</Text>
         </TouchableOpacity>
       </View>
 
@@ -131,99 +210,154 @@ export default function UnitsScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="home" size={24} color="#2563eb" />
-            <Text style={styles.sectionTitle}>Condo Units ({condos.length})</Text>
-          </View>
-          {condos.map(unit => (
-            <Card key={unit.id} style={styles.unitCard}>
-              <View style={styles.unitHeader}>
-                <View style={styles.unitInfo}>
-                  <Text style={styles.unitId}>{unit.unit_id}</Text>
-                  <Text style={styles.unitName}>{unit.display_name}</Text>
-                </View>
-                <View style={[
-                  styles.balanceBadge,
-                  { backgroundColor: unit.current_balance > 0 ? '#fef2f2' : '#f0fdf4' }
-                ]}>
-                  <Text style={[
-                    styles.balanceText,
-                    { color: unit.current_balance > 0 ? '#dc2626' : '#16a34a' }
-                  ]}>
-                    {formatCurrency(unit.current_balance)}
-                  </Text>
-                </View>
+        {activeTab === 'units' ? (
+          <>
+            {/* Condo Units */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="home" size={24} color="#2563eb" />
+                <Text style={styles.sectionTitle}>Condo Units ({condos.length})</Text>
               </View>
-              <View style={styles.unitDetails}>
-                <View style={styles.ownerRow}>
-                  <Ionicons name="person" size={16} color="#64748b" />
-                  <Text style={styles.ownerName}>
-                    {unit.primary_owner_name || 'Not assigned'}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.assignButton}
-                  onPress={() => {
-                    setSelectedUnit(unit);
-                    setShowAssignModal(true);
-                  }}
-                >
-                  <Text style={styles.assignButtonText}>
-                    {unit.primary_owner_name ? 'Change' : 'Assign'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </Card>
-          ))}
-        </View>
+              {condos.map(unit => (
+                <Card key={unit.id} style={styles.unitCard}>
+                  <View style={styles.unitHeader}>
+                    <View style={styles.unitInfo}>
+                      <Text style={styles.unitId}>{unit.unit_id}</Text>
+                      <Text style={styles.unitName}>{unit.display_name}</Text>
+                    </View>
+                    <View style={[
+                      styles.balanceBadge,
+                      { backgroundColor: unit.current_balance > 0 ? '#fef2f2' : '#f0fdf4' }
+                    ]}>
+                      <Text style={[
+                        styles.balanceText,
+                        { color: unit.current_balance > 0 ? '#dc2626' : '#16a34a' }
+                      ]}>
+                        {formatCurrency(unit.current_balance)}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.unitDetails}>
+                    <View style={styles.ownerRow}>
+                      <Ionicons name="person" size={16} color="#64748b" />
+                      <Text style={styles.ownerName}>
+                        {unit.primary_owner_name || 'Not assigned'}
+                      </Text>
+                    </View>
+                    <View style={styles.actionButtons}>
+                      <TouchableOpacity
+                        style={styles.editButton}
+                        onPress={() => openEditModal(unit)}
+                      >
+                        <Ionicons name="pencil" size={16} color="#2563eb" />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.assignButton}
+                        onPress={() => {
+                          setSelectedUnit(unit);
+                          setShowAssignModal(true);
+                        }}
+                      >
+                        <Text style={styles.assignButtonText}>
+                          {unit.primary_owner_name ? 'Change' : 'Assign'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </Card>
+              ))}
+            </View>
 
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="storefront" size={24} color="#059669" />
-            <Text style={styles.sectionTitle}>Shop Units ({shops.length})</Text>
-          </View>
-          {shops.map(unit => (
-            <Card key={unit.id} style={styles.unitCard}>
-              <View style={styles.unitHeader}>
-                <View style={styles.unitInfo}>
-                  <Text style={styles.unitId}>{unit.unit_id}</Text>
-                  <Text style={styles.unitName}>{unit.display_name}</Text>
-                </View>
-                <View style={[
-                  styles.balanceBadge,
-                  { backgroundColor: unit.current_balance > 0 ? '#fef2f2' : '#f0fdf4' }
-                ]}>
-                  <Text style={[
-                    styles.balanceText,
-                    { color: unit.current_balance > 0 ? '#dc2626' : '#16a34a' }
+            {/* Shop Units */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="storefront" size={24} color="#059669" />
+                <Text style={styles.sectionTitle}>Shop Units ({shops.length})</Text>
+              </View>
+              {shops.map(unit => (
+                <Card key={unit.id} style={styles.unitCard}>
+                  <View style={styles.unitHeader}>
+                    <View style={styles.unitInfo}>
+                      <Text style={styles.unitId}>{unit.unit_id}</Text>
+                      <Text style={styles.unitName}>{unit.display_name}</Text>
+                    </View>
+                    <View style={[
+                      styles.balanceBadge,
+                      { backgroundColor: unit.current_balance > 0 ? '#fef2f2' : '#f0fdf4' }
+                    ]}>
+                      <Text style={[
+                        styles.balanceText,
+                        { color: unit.current_balance > 0 ? '#dc2626' : '#16a34a' }
+                      ]}>
+                        {formatCurrency(unit.current_balance)}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.unitDetails}>
+                    <View style={styles.ownerRow}>
+                      <Ionicons name="person" size={16} color="#64748b" />
+                      <Text style={styles.ownerName}>
+                        {unit.primary_owner_name || 'Not assigned'}
+                      </Text>
+                    </View>
+                    <View style={styles.actionButtons}>
+                      <TouchableOpacity
+                        style={styles.editButton}
+                        onPress={() => openEditModal(unit)}
+                      >
+                        <Ionicons name="pencil" size={16} color="#2563eb" />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.assignButton}
+                        onPress={() => {
+                          setSelectedUnit(unit);
+                          setShowAssignModal(true);
+                        }}
+                      >
+                        <Text style={styles.assignButtonText}>
+                          {unit.primary_owner_name ? 'Change' : 'Assign'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </Card>
+              ))}
+            </View>
+          </>
+        ) : (
+          /* Owners List */
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="people" size={24} color="#2563eb" />
+              <Text style={styles.sectionTitle}>All Owners ({owners.length})</Text>
+            </View>
+            {owners.map(owner => (
+              <Card key={owner.id} style={styles.ownerCard}>
+                <View style={styles.ownerCardHeader}>
+                  <View style={styles.ownerAvatar}>
+                    <Ionicons name="person" size={24} color="#2563eb" />
+                  </View>
+                  <View style={styles.ownerInfo}>
+                    <Text style={styles.ownerCardName}>{owner.name}</Text>
+                    <Text style={styles.ownerEmail}>{owner.email}</Text>
+                    {owner.phone && <Text style={styles.ownerPhone}>{owner.phone}</Text>}
+                  </View>
+                  <View style={[
+                    styles.roleBadge,
+                    { backgroundColor: owner.role === 'admin' ? '#dbeafe' : '#f0fdf4' }
                   ]}>
-                    {formatCurrency(unit.current_balance)}
-                  </Text>
+                    <Text style={[
+                      styles.roleText,
+                      { color: owner.role === 'admin' ? '#2563eb' : '#16a34a' }
+                    ]}>
+                      {owner.role.toUpperCase()}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-              <View style={styles.unitDetails}>
-                <View style={styles.ownerRow}>
-                  <Ionicons name="person" size={16} color="#64748b" />
-                  <Text style={styles.ownerName}>
-                    {unit.primary_owner_name || 'Not assigned'}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.assignButton}
-                  onPress={() => {
-                    setSelectedUnit(unit);
-                    setShowAssignModal(true);
-                  }}
-                >
-                  <Text style={styles.assignButtonText}>
-                    {unit.primary_owner_name ? 'Change' : 'Assign'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </Card>
-          ))}
-        </View>
+              </Card>
+            ))}
+          </View>
+        )}
       </ScrollView>
 
       {/* Assign Owner Modal */}
@@ -245,18 +379,18 @@ export default function UnitsScreen() {
               Select an owner for {selectedUnit?.display_name}
             </Text>
             <ScrollView style={styles.ownerList}>
-              {owners.map(owner => (
+              {owners.filter(o => o.role === 'owner').map(owner => (
                 <TouchableOpacity
                   key={owner.id}
                   style={styles.ownerItem}
                   onPress={() => handleAssignOwner(owner.id)}
                 >
-                  <View style={styles.ownerAvatar}>
+                  <View style={styles.ownerItemAvatar}>
                     <Ionicons name="person" size={24} color="#2563eb" />
                   </View>
-                  <View style={styles.ownerDetails}>
+                  <View style={styles.ownerItemDetails}>
                     <Text style={styles.ownerItemName}>{owner.name}</Text>
-                    <Text style={styles.ownerEmail}>{owner.email}</Text>
+                    <Text style={styles.ownerItemEmail}>{owner.email}</Text>
                   </View>
                   <Ionicons name="chevron-forward" size={20} color="#94a3b8" />
                 </TouchableOpacity>
@@ -273,7 +407,10 @@ export default function UnitsScreen() {
         transparent={true}
         onRequestClose={() => setShowCreateModal(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Add New Unit</Text>
@@ -285,13 +422,13 @@ export default function UnitsScreen() {
               label="Unit ID"
               value={newUnit.unit_id}
               onChangeText={(text) => setNewUnit({ ...newUnit, unit_id: text })}
-              placeholder="e.g., C6 or S4"
+              placeholder="e.g., 101 or Shop-A"
             />
             <Input
               label="Display Name"
               value={newUnit.display_name}
               onChangeText={(text) => setNewUnit({ ...newUnit, display_name: text })}
-              placeholder="e.g., Condo Unit 6"
+              placeholder="e.g., Flat 101 or Ground Floor Shop"
             />
             <Text style={styles.typeLabel}>Unit Type</Text>
             <View style={styles.typeButtons}>
@@ -311,7 +448,7 @@ export default function UnitsScreen() {
                   styles.typeButtonText,
                   newUnit.unit_type === 'condo' && styles.typeButtonTextActive
                 ]}>
-                  Condo
+                  Condo/Flat
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -340,7 +477,121 @@ export default function UnitsScreen() {
               style={styles.createButton}
             />
           </View>
-        </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Edit Unit Modal */}
+      <Modal
+        visible={showEditModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowEditModal(false)}
+      >
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Edit Unit</Text>
+              <TouchableOpacity onPress={() => setShowEditModal(false)}>
+                <Ionicons name="close" size={24} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+            <Input
+              label="Unit ID"
+              value={editUnit.unit_id}
+              onChangeText={(text) => setEditUnit({ ...editUnit, unit_id: text })}
+              placeholder="e.g., 101 or Shop-A"
+            />
+            <Input
+              label="Display Name"
+              value={editUnit.display_name}
+              onChangeText={(text) => setEditUnit({ ...editUnit, display_name: text })}
+              placeholder="e.g., Flat 101 - Mr. Kumar"
+            />
+            <Text style={styles.typeLabel}>Status</Text>
+            <View style={styles.statusButtons}>
+              {['owned', 'rented', 'vacant'].map(status => (
+                <TouchableOpacity
+                  key={status}
+                  style={[
+                    styles.statusButton,
+                    editUnit.status === status && styles.statusButtonActive
+                  ]}
+                  onPress={() => setEditUnit({ ...editUnit, status })}
+                >
+                  <Text style={[
+                    styles.statusButtonText,
+                    editUnit.status === status && styles.statusButtonTextActive
+                  ]}>
+                    {status.charAt(0).toUpperCase() + status.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Button
+              title="Save Changes"
+              onPress={handleEditUnit}
+              style={styles.createButton}
+            />
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Create Owner Modal */}
+      <Modal
+        visible={showOwnerModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowOwnerModal(false)}
+      >
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Add New Owner</Text>
+              <TouchableOpacity onPress={() => setShowOwnerModal(false)}>
+                <Ionicons name="close" size={24} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+            <Input
+              label="Full Name *"
+              value={newOwner.name}
+              onChangeText={(text) => setNewOwner({ ...newOwner, name: text })}
+              placeholder="e.g., John Smith"
+            />
+            <Input
+              label="Email *"
+              value={newOwner.email}
+              onChangeText={(text) => setNewOwner({ ...newOwner, email: text })}
+              placeholder="e.g., john@email.com"
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+            <Input
+              label="Phone Number"
+              value={newOwner.phone}
+              onChangeText={(text) => setNewOwner({ ...newOwner, phone: text })}
+              placeholder="e.g., +91 9876543210"
+              keyboardType="phone-pad"
+            />
+            <Input
+              label="Password (default: Welcome123)"
+              value={newOwner.password}
+              onChangeText={(text) => setNewOwner({ ...newOwner, password: text })}
+              placeholder="Leave empty for default"
+              secureTextEntry
+            />
+            <Button
+              title="Create Owner"
+              onPress={handleCreateOwner}
+              style={styles.createButton}
+            />
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
@@ -372,6 +623,34 @@ const styles = StyleSheet.create({
     backgroundColor: '#2563eb',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  tabs: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    gap: 12,
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#f1f5f9',
+  },
+  tabActive: {
+    backgroundColor: '#2563eb',
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  tabTextActive: {
+    color: '#fff',
   },
   scrollContent: {
     padding: 16,
@@ -434,10 +713,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flex: 1,
   },
   ownerName: {
     fontSize: 14,
     color: '#64748b',
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  editButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#eff6ff',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   assignButton: {
     paddingHorizontal: 16,
@@ -450,6 +743,48 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#2563eb',
   },
+  ownerCard: {
+    marginBottom: 12,
+  },
+  ownerCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  ownerAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#dbeafe',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ownerInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  ownerCardName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  ownerEmail: {
+    fontSize: 14,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  ownerPhone: {
+    fontSize: 14,
+    color: '#64748b',
+  },
+  roleBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  roleText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -460,7 +795,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
-    maxHeight: '80%',
+    maxHeight: '85%',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -489,7 +824,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 8,
   },
-  ownerAvatar: {
+  ownerItemAvatar: {
     width: 48,
     height: 48,
     borderRadius: 24,
@@ -497,7 +832,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  ownerDetails: {
+  ownerItemDetails: {
     flex: 1,
     marginLeft: 12,
   },
@@ -506,7 +841,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1e293b',
   },
-  ownerEmail: {
+  ownerItemEmail: {
     fontSize: 14,
     color: '#64748b',
   },
@@ -543,6 +878,29 @@ const styles = StyleSheet.create({
     color: '#64748b',
   },
   typeButtonTextActive: {
+    color: '#fff',
+  },
+  statusButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 24,
+  },
+  statusButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+  },
+  statusButtonActive: {
+    backgroundColor: '#2563eb',
+  },
+  statusButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  statusButtonTextActive: {
     color: '#fff',
   },
   createButton: {
