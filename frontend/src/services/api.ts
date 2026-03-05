@@ -56,6 +56,15 @@ export const getPayments = (unitId?: string) =>
   api.get('/payments', { params: unitId ? { unit_id: unitId } : {} });
 export const createPayment = (data: any) => api.post('/payments', data);
 
+// Expenses (Outgoing payments to vendors)
+export const getExpenses = () => api.get('/expenses');
+export const createExpense = (data: any) => api.post('/expenses', data);
+
+// Adjustments (Post-posting corrections)
+export const getAdjustments = (unitId?: string) =>
+  api.get('/adjustments', { params: unitId ? { unit_id: unitId } : {} });
+export const createAdjustment = (data: any) => api.post('/adjustments', data);
+
 // Reports
 export const getTrueUpReport = (year: number) => api.get(`/reports/true-up/${year}`);
 export const carryForward = (year: number) => api.post(`/reports/carry-forward/${year}`);
