@@ -747,6 +747,79 @@ async def approve_annual_setup(setup_id: str, user: dict = Depends(require_admin
     
     return {"message": "Annual setup approved successfully"}
 
+class BillInputYearUpdate(BaseModel):
+    water_total: Optional[float] = None
+    electricity_total: Optional[float] = None
+    notes: Optional[str] = None
+
+@api_router.put("/billing/annual-setup/{setup_id}", response_model=BillInputYearResponse)
+async def update_annual_setup(setup_id: str, update_data: BillInputYearUpdate, user: dict = Depends(require_admin)):
+    """Update an annual setup (only if not posted)"""
+    setup = await db.bill_inputs.find_one({"_id": ObjectId(setup_id)})
+    if not setup:
+        raise HTTPException(status_code=404, detail="Setup not found")
+    
+    if setup["status"] == "posted":
+        raise HTTPException(status_code=400, detail="Cannot edit a posted setup")
+    
+    update_dict = {}
+    W = update_data.water_total if update_data.water_total is not None else setup["water_total"]
+    E = update_data.electricity_total if update_data.electricity_total is not None else setup["electricity_total"]
+    
+    if update_data.water_total is not None or update_data.electricity_total is not None:
+        # Recalculate shares
+        condo_annual = (W / 5) + (0.40 * E / 5) + (0.60 * E / 8)
+        shop_annual = 0.60 * E / 8
+        
+        update_dict["water_total"] = W
+        update_dict["electricity_total"] = E
+        update_dict["condo_annual_share"] = round(condo_annual, 2)
+        update_dict["shop_annual_share"] = round(shop_annual, 2)
+        # Reset to draft if amounts changed
+        update_dict["status"] = "draft"
+        update_dict["approved_by"] = None
+        update_dict["approved_at"] = None
+    
+    if update_data.notes is not None:
+        update_dict["notes"] = update_data.notes
+    
+    if update_dict:
+        await db.bill_inputs.update_one({"_id": ObjectId(setup_id)}, {"$set": update_dict})
+        await log_audit("bill_input", setup_id, "update", dict(setup), update_dict, str(user["_id"]))
+    
+    updated = await db.bill_inputs.find_one({"_id": ObjectId(setup_id)})
+    entered_by_user = await db.users.find_one({"_id": ObjectId(updated["entered_by"])})
+    
+    return BillInputYearResponse(
+        id=str(updated["_id"]),
+        year=updated["year"],
+        water_total=updated["water_total"],
+        electricity_total=updated["electricity_total"],
+        condo_annual_share=updated["condo_annual_share"],
+        shop_annual_share=updated["shop_annual_share"],
+        status=updated["status"],
+        notes=updated.get("notes", ""),
+        entered_by=entered_by_user["name"] if entered_by_user else "Unknown",
+        approved_by=updated.get("approved_by"),
+        approved_at=updated.get("approved_at"),
+        created_at=updated["created_at"]
+    )
+
+@api_router.delete("/billing/annual-setup/{setup_id}")
+async def delete_annual_setup(setup_id: str, user: dict = Depends(require_admin)):
+    """Delete an annual setup (only if not posted)"""
+    setup = await db.bill_inputs.find_one({"_id": ObjectId(setup_id)})
+    if not setup:
+        raise HTTPException(status_code=404, detail="Setup not found")
+    
+    if setup["status"] == "posted":
+        raise HTTPException(status_code=400, detail="Cannot delete a posted setup")
+    
+    await db.bill_inputs.delete_one({"_id": ObjectId(setup_id)})
+    await log_audit("bill_input", setup_id, "delete", {"year": setup["year"]}, None, str(user["_id"]))
+    
+    return {"message": f"Annual setup for {setup['year']} deleted successfully"}
+
 @api_router.post("/billing/annual-setup/{setup_id}/post")
 async def post_annual_charges(setup_id: str, monthly_split: bool = False, user: dict = Depends(require_admin)):
     """Post annual charges to all unit ledgers"""
