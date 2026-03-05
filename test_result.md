@@ -116,6 +116,9 @@ backend:
       - working: true
         agent: "main"
         comment: "JWT auth implemented with bcrypt password hashing, login/register/me endpoints working"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Login with admin@keralahoa.com/admin123 successful, JWT token generation working, /auth/me endpoint returns correct user data. All authentication endpoints functioning properly."
 
   - task: "Unit Management CRUD"
     implemented: true
