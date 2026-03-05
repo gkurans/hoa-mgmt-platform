@@ -267,6 +267,9 @@ frontend:
       - working: true
         agent: "main"
         comment: "Lists condos and shops, shows balances, owner assignment modal"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Units management fully functional. Displays Condo Units (5) section with C1-C5 units, Shop Units (3) section with S1-S3 units. All units show correct balances (C1: ₹-15,000.00 credit, others: ₹25,500.00 for condos, ₹7,500.00 for shops). Assign buttons work correctly, modal opens with 'Assign Owner' functionality and owner selection."
 
   - task: "Billing Screen"
     implemented: true
