@@ -1080,6 +1080,21 @@ async def get_payments(unit_id: Optional[str] = None, user: dict = Depends(get_c
         unit = await db.units.find_one({"_id": ObjectId(p["unit_id"])})
         recorded_by = await db.users.find_one({"_id": ObjectId(p["recorded_by"])})
         
+        # Get charge and category info if linked
+        charge_description = None
+        category_name = None
+        if p.get("charge_id"):
+            charge = await db.charges.find_one({"_id": ObjectId(p["charge_id"])})
+            if charge:
+                charge_description = charge.get("description", "")
+                cat = await db.categories.find_one({"_id": ObjectId(charge["category_id"])})
+                if cat:
+                    category_name = cat["name"]
+        elif p.get("category_id"):
+            cat = await db.categories.find_one({"_id": ObjectId(p["category_id"])})
+            if cat:
+                category_name = cat["name"]
+        
         result.append(PaymentResponse(
             id=str(p["_id"]),
             unit_id=p["unit_id"],
@@ -1089,6 +1104,9 @@ async def get_payments(unit_id: Optional[str] = None, user: dict = Depends(get_c
             method=p["method"],
             reference=p.get("reference", ""),
             notes=p.get("notes", ""),
+            charge_id=p.get("charge_id"),
+            charge_description=charge_description,
+            category_name=category_name,
             recorded_by=recorded_by["name"] if recorded_by else "Unknown",
             created_at=p["created_at"]
         ))
@@ -1101,6 +1119,21 @@ async def create_payment(payment_data: PaymentCreate, user: dict = Depends(requi
     if not unit:
         raise HTTPException(status_code=404, detail="Unit not found")
     
+    # Verify charge if provided
+    charge_description = None
+    category_name = None
+    if payment_data.charge_id:
+        charge = await db.charges.find_one({"_id": ObjectId(payment_data.charge_id)})
+        if charge:
+            charge_description = charge.get("description", "")
+            cat = await db.categories.find_one({"_id": ObjectId(charge["category_id"])})
+            if cat:
+                category_name = cat["name"]
+    elif payment_data.category_id:
+        cat = await db.categories.find_one({"_id": ObjectId(payment_data.category_id)})
+        if cat:
+            category_name = cat["name"]
+    
     payment_doc = {
         "unit_id": payment_data.unit_id,
         "amount": payment_data.amount,
@@ -1108,6 +1141,8 @@ async def create_payment(payment_data: PaymentCreate, user: dict = Depends(requi
         "method": payment_data.method,
         "reference": payment_data.reference,
         "notes": payment_data.notes,
+        "charge_id": payment_data.charge_id,
+        "category_id": payment_data.category_id,
         "recorded_by": str(user["_id"]),
         "created_at": datetime.utcnow()
     }
@@ -1120,23 +1155,30 @@ async def create_payment(payment_data: PaymentCreate, user: dict = Depends(requi
         {"$inc": {"current_balance": -payment_data.amount}}
     )
     
-    # Update pending charges status
-    # Simple approach: mark oldest pending charges as paid
-    pending_charges = await db.charges.find({
-        "unit_id": payment_data.unit_id,
-        "status": "pending"
-    }).sort("created_at", 1).to_list(100)
-    
-    remaining = payment_data.amount
-    for charge in pending_charges:
-        if remaining <= 0:
-            break
-        if remaining >= charge["amount"]:
-            await db.charges.update_one({"_id": charge["_id"]}, {"$set": {"status": "paid"}})
-            remaining -= charge["amount"]
-        else:
-            await db.charges.update_one({"_id": charge["_id"]}, {"$set": {"status": "partial"}})
-            remaining = 0
+    # If linked to specific charge, update that charge
+    if payment_data.charge_id:
+        charge = await db.charges.find_one({"_id": ObjectId(payment_data.charge_id)})
+        if charge and charge["amount"] <= payment_data.amount:
+            await db.charges.update_one({"_id": ObjectId(payment_data.charge_id)}, {"$set": {"status": "paid"}})
+        elif charge:
+            await db.charges.update_one({"_id": ObjectId(payment_data.charge_id)}, {"$set": {"status": "partial"}})
+    else:
+        # Mark oldest pending charges as paid
+        pending_charges = await db.charges.find({
+            "unit_id": payment_data.unit_id,
+            "status": "pending"
+        }).sort("created_at", 1).to_list(100)
+        
+        remaining = payment_data.amount
+        for charge in pending_charges:
+            if remaining <= 0:
+                break
+            if remaining >= charge["amount"]:
+                await db.charges.update_one({"_id": charge["_id"]}, {"$set": {"status": "paid"}})
+                remaining -= charge["amount"]
+            else:
+                await db.charges.update_one({"_id": charge["_id"]}, {"$set": {"status": "partial"}})
+                remaining = 0
     
     await log_audit("payment", str(result.inserted_id), "create", None, payment_doc, str(user["_id"]))
     
@@ -1148,6 +1190,170 @@ async def create_payment(payment_data: PaymentCreate, user: dict = Depends(requi
         payment_date=payment_data.payment_date,
         method=payment_data.method,
         reference=payment_data.reference,
+        notes=payment_data.notes,
+        charge_id=payment_data.charge_id,
+        charge_description=charge_description,
+        category_name=category_name,
+        recorded_by=user["name"],
+        created_at=payment_doc["created_at"]
+    )
+
+# ============== EXPENSES (OUTGOING PAYMENTS TO VENDORS) ==============
+
+@api_router.get("/expenses", response_model=List[ExpenseResponse])
+async def get_expenses(user: dict = Depends(require_admin)):
+    expenses = await db.expenses.find().sort("created_at", -1).to_list(1000)
+    result = []
+    
+    for e in expenses:
+        category = await db.categories.find_one({"_id": ObjectId(e["category_id"])})
+        recorded_by = await db.users.find_one({"_id": ObjectId(e["recorded_by"])})
+        
+        result.append(ExpenseResponse(
+            id=str(e["_id"]),
+            vendor_name=e["vendor_name"],
+            category_id=e["category_id"],
+            category_name=category["name"] if category else "Unknown",
+            amount=e["amount"],
+            payment_date=e["payment_date"],
+            description=e.get("description", ""),
+            method=e["method"],
+            reference=e.get("reference", ""),
+            invoice_number=e.get("invoice_number", ""),
+            recorded_by=recorded_by["name"] if recorded_by else "Unknown",
+            created_at=e["created_at"]
+        ))
+    
+    return result
+
+@api_router.post("/expenses", response_model=ExpenseResponse)
+async def create_expense(expense_data: ExpenseCreate, user: dict = Depends(require_admin)):
+    """Record an outgoing payment to a vendor"""
+    category = await db.categories.find_one({"_id": ObjectId(expense_data.category_id)})
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+    
+    expense_doc = {
+        "vendor_name": expense_data.vendor_name,
+        "category_id": expense_data.category_id,
+        "amount": expense_data.amount,
+        "payment_date": expense_data.payment_date,
+        "description": expense_data.description,
+        "method": expense_data.method,
+        "reference": expense_data.reference,
+        "invoice_number": expense_data.invoice_number,
+        "recorded_by": str(user["_id"]),
+        "created_at": datetime.utcnow()
+    }
+    
+    result = await db.expenses.insert_one(expense_doc)
+    
+    await log_audit("expense", str(result.inserted_id), "create", None, expense_doc, str(user["_id"]))
+    
+    return ExpenseResponse(
+        id=str(result.inserted_id),
+        vendor_name=expense_data.vendor_name,
+        category_id=expense_data.category_id,
+        category_name=category["name"],
+        amount=expense_data.amount,
+        payment_date=expense_data.payment_date,
+        description=expense_data.description,
+        method=expense_data.method,
+        reference=expense_data.reference,
+        invoice_number=expense_data.invoice_number,
+        recorded_by=user["name"],
+        created_at=expense_doc["created_at"]
+    )
+
+# ============== ADJUSTMENTS (POST-POSTING CORRECTIONS) ==============
+
+@api_router.get("/adjustments", response_model=List[AdjustmentResponse])
+async def get_adjustments(unit_id: Optional[str] = None, user: dict = Depends(get_current_user)):
+    query = {}
+    if unit_id:
+        query["unit_id"] = unit_id
+    
+    adjustments = await db.adjustments.find(query).sort("created_at", -1).to_list(1000)
+    result = []
+    
+    for a in adjustments:
+        unit = await db.units.find_one({"_id": ObjectId(a["unit_id"])})
+        category = await db.categories.find_one({"_id": ObjectId(a["category_id"])})
+        created_by = await db.users.find_one({"_id": ObjectId(a["created_by"])})
+        
+        result.append(AdjustmentResponse(
+            id=str(a["_id"]),
+            unit_id=a["unit_id"],
+            unit_display=unit["display_name"] if unit else "Unknown",
+            category_id=a["category_id"],
+            category_name=category["name"] if category else "Unknown",
+            amount=a["amount"],
+            adjustment_type="credit" if a["amount"] < 0 else "debit",
+            reason=a["reason"],
+            period=a.get("period", ""),
+            created_by=created_by["name"] if created_by else "Unknown",
+            created_at=a["created_at"]
+        ))
+    
+    return result
+
+@api_router.post("/adjustments", response_model=AdjustmentResponse)
+async def create_adjustment(adjustment_data: AdjustmentCreate, user: dict = Depends(require_admin)):
+    """Create an adjustment (credit or debit) for a unit after charges are posted"""
+    unit = await db.units.find_one({"_id": ObjectId(adjustment_data.unit_id)})
+    if not unit:
+        raise HTTPException(status_code=404, detail="Unit not found")
+    
+    category = await db.categories.find_one({"_id": ObjectId(adjustment_data.category_id)})
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+    
+    adjustment_doc = {
+        "unit_id": adjustment_data.unit_id,
+        "category_id": adjustment_data.category_id,
+        "amount": adjustment_data.amount,
+        "reason": adjustment_data.reason,
+        "period": adjustment_data.period,
+        "created_by": str(user["_id"]),
+        "created_at": datetime.utcnow()
+    }
+    
+    result = await db.adjustments.insert_one(adjustment_doc)
+    
+    # Update unit balance (positive amount = add to balance, negative = reduce)
+    await db.units.update_one(
+        {"_id": ObjectId(adjustment_data.unit_id)},
+        {"$inc": {"current_balance": adjustment_data.amount}}
+    )
+    
+    # Create a corresponding charge record for audit trail
+    charge_doc = {
+        "unit_id": adjustment_data.unit_id,
+        "category_id": adjustment_data.category_id,
+        "amount": adjustment_data.amount,
+        "description": f"Adjustment: {adjustment_data.reason}",
+        "period": adjustment_data.period,
+        "source": "adjustment",
+        "status": "adjustment",
+        "created_at": datetime.utcnow()
+    }
+    await db.charges.insert_one(charge_doc)
+    
+    await log_audit("adjustment", str(result.inserted_id), "create", None, adjustment_doc, str(user["_id"]))
+    
+    return AdjustmentResponse(
+        id=str(result.inserted_id),
+        unit_id=adjustment_data.unit_id,
+        unit_display=unit["display_name"],
+        category_id=adjustment_data.category_id,
+        category_name=category["name"],
+        amount=adjustment_data.amount,
+        adjustment_type="credit" if adjustment_data.amount < 0 else "debit",
+        reason=adjustment_data.reason,
+        period=adjustment_data.period,
+        created_by=user["name"],
+        created_at=adjustment_doc["created_at"]
+    )
         notes=payment_data.notes,
         recorded_by=user["name"],
         created_at=payment_doc["created_at"]
