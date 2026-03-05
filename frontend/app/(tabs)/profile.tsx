@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,8 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  Platform,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -15,24 +17,32 @@ import Card from '../../src/components/Card';
 import Button from '../../src/components/Button';
 
 export default function ProfileScreen() {
-  const { user, logout, isAdmin } = useAuthStore();
+  const { user, logout } = useAuthStore();
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            await logout();
-            router.replace('/(auth)/login');
+    if (Platform.OS === 'web') {
+      setShowLogoutModal(true);
+    } else {
+      Alert.alert(
+        'Logout',
+        'Are you sure you want to logout?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Logout',
+            style: 'destructive',
+            onPress: performLogout,
           },
-        },
-      ]
-    );
+        ]
+      );
+    }
+  };
+
+  const performLogout = async () => {
+    setShowLogoutModal(false);
+    await logout();
+    router.replace('/(auth)/login');
   };
 
   return (
@@ -49,7 +59,7 @@ export default function ProfileScreen() {
           <Text style={styles.userName}>{user?.name}</Text>
           <Text style={styles.userEmail}>{user?.email}</Text>
           <View style={styles.roleBadge}>
-            <Text style={styles.roleText}>{user?.role.toUpperCase()}</Text>
+            <Text style={styles.roleText}>{user?.role?.toUpperCase()}</Text>
           </View>
         </Card>
 
@@ -117,6 +127,36 @@ export default function ProfileScreen() {
           style={styles.logoutButton}
         />
       </ScrollView>
+
+      {/* Logout Confirmation Modal for Web */}
+      <Modal
+        visible={showLogoutModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowLogoutModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Ionicons name="log-out" size={48} color="#dc2626" style={styles.modalIcon} />
+            <Text style={styles.modalTitle}>Logout</Text>
+            <Text style={styles.modalMessage}>Are you sure you want to logout?</Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={styles.cancelButton}
+                onPress={() => setShowLogoutModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.confirmButton}
+                onPress={performLogout}
+              >
+                <Text style={styles.confirmButtonText}>Logout</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
