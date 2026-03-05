@@ -8,6 +8,9 @@ import {
   TouchableOpacity,
   Modal,
   Alert,
+  Platform,
+  Pressable,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -46,7 +49,8 @@ interface Unit {
 }
 
 export default function BillingScreen() {
-  const { isAdmin } = useAuthStore();
+  const { user } = useAuthStore();
+  const isAdminUser = user?.role === 'admin' || user?.role === 'treasurer';
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [setups, setSetups] = useState<AnnualSetup[]>([]);
@@ -55,6 +59,9 @@ export default function BillingScreen() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
   const [activeTab, setActiveTab] = useState<'allocation' | 'payments'>('allocation');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showResultModal, setShowResultModal] = useState(false);
+  const [resultMessage, setResultMessage] = useState({ title: '', message: '', isError: false });
 
   const [newSetup, setNewSetup] = useState({
     year: new Date().getFullYear(),
@@ -70,6 +77,15 @@ export default function BillingScreen() {
     reference: '',
     notes: '',
   });
+
+  const showMessage = (title: string, message: string, isError: boolean = false) => {
+    if (Platform.OS === 'web') {
+      setResultMessage({ title, message, isError });
+      setShowResultModal(true);
+    } else {
+      Alert.alert(title, message);
+    }
+  };
 
   const fetchData = useCallback(async () => {
     try {
@@ -98,9 +114,10 @@ export default function BillingScreen() {
 
   const handleCreateSetup = async () => {
     if (!newSetup.water_total || !newSetup.electricity_total) {
-      Alert.alert('Error', 'Please enter Water and Electricity totals');
+      showMessage('Error', 'Please enter Water and Electricity totals', true);
       return;
     }
+    setIsSubmitting(true);
     try {
       await createAnnualSetup({
         year: newSetup.year,
@@ -108,52 +125,49 @@ export default function BillingScreen() {
         electricity_total: parseFloat(newSetup.electricity_total),
         notes: newSetup.notes,
       });
-      Alert.alert('Success', 'Annual setup created');
       setShowSetupModal(false);
       setNewSetup({ year: new Date().getFullYear(), water_total: '', electricity_total: '', notes: '' });
+      showMessage('Success', 'Annual setup created successfully!');
       fetchData();
     } catch (error: any) {
-      Alert.alert('Error', error.response?.data?.detail || 'Failed to create setup');
+      showMessage('Error', error.response?.data?.detail || 'Failed to create setup', true);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleApprove = async (id: string) => {
+    setIsSubmitting(true);
     try {
       await approveSetup(id);
-      Alert.alert('Success', 'Setup approved');
+      showMessage('Success', 'Setup approved successfully!');
       fetchData();
     } catch (error: any) {
-      Alert.alert('Error', error.response?.data?.detail || 'Failed to approve');
+      showMessage('Error', error.response?.data?.detail || 'Failed to approve', true);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handlePost = async (id: string) => {
-    Alert.alert(
-      'Post Charges',
-      'This will create charges for all units. Continue?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Post',
-          onPress: async () => {
-            try {
-              const result = await postCharges(id, false);
-              Alert.alert('Success', result.data.message);
-              fetchData();
-            } catch (error: any) {
-              Alert.alert('Error', error.response?.data?.detail || 'Failed to post');
-            }
-          },
-        },
-      ]
-    );
+    setIsSubmitting(true);
+    try {
+      const result = await postCharges(id, false);
+      showMessage('Success', result.data.message);
+      fetchData();
+    } catch (error: any) {
+      showMessage('Error', error.response?.data?.detail || 'Failed to post', true);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleRecordPayment = async () => {
     if (!selectedUnit || !newPayment.amount) {
-      Alert.alert('Error', 'Please enter payment amount');
+      showMessage('Error', 'Please enter payment amount', true);
       return;
     }
+    setIsSubmitting(true);
     try {
       await createPayment({
         unit_id: selectedUnit.id,
@@ -163,12 +177,14 @@ export default function BillingScreen() {
         reference: newPayment.reference,
         notes: newPayment.notes,
       });
-      Alert.alert('Success', 'Payment recorded');
       setShowPaymentModal(false);
       setNewPayment({ amount: '', payment_date: new Date().toISOString().split('T')[0], method: 'upi', reference: '', notes: '' });
+      showMessage('Success', 'Payment recorded successfully!');
       fetchData();
     } catch (error: any) {
-      Alert.alert('Error', error.response?.data?.detail || 'Failed to record payment');
+      showMessage('Error', error.response?.data?.detail || 'Failed to record payment', true);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
