@@ -223,7 +223,7 @@ export default function BillingScreen() {
             />
 
             <View style={styles.formulaCard}>
-              <Text style={styles.formulaTitle}>Kerala HOA Allocation Formula</Text>
+              <Text style={styles.formulaTitle}>Unity Towers Allocation Formula</Text>
               <View style={styles.formulaBox}>
                 <Text style={styles.formulaLabel}>Condo Share =</Text>
                 <Text style={styles.formulaText}>W/5 + 0.40E/5 + 0.60E/8</Text>
