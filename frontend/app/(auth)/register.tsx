@@ -71,7 +71,7 @@ export default function RegisterScreen() {
 
           <View style={styles.header}>
             <Text style={styles.title}>Create Account</Text>
-            <Text style={styles.subtitle}>Join Kerala HOA today</Text>
+            <Text style={styles.subtitle}>Join Unity Towers Property Association</Text>
           </View>
 
           <View style={styles.form}>
