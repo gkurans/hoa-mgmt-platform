@@ -4,7 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../src/store/authStore';
 
 export default function TabLayout() {
-  const isAdmin = useAuthStore((state) => state.isAdmin);
+  const { user } = useAuthStore();
+  const isAdminUser = user?.role === 'admin' || user?.role === 'treasurer';
 
   return (
     <Tabs
@@ -42,7 +43,6 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="business" size={size} color={color} />
           ),
-          href: isAdmin() ? '/(tabs)/units' : null,
         }}
       />
       <Tabs.Screen
@@ -61,7 +61,6 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="bar-chart" size={size} color={color} />
           ),
-          href: isAdmin() ? '/(tabs)/reports' : null,
         }}
       />
       <Tabs.Screen
