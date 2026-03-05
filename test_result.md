@@ -282,6 +282,9 @@ frontend:
       - working: true
         agent: "main"
         comment: "Annual allocation tab with formula display, payment recording tab"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Billing screen fully functional. Both 'Annual Allocation' and 'Record Payment' tabs present and working. Unity Towers Allocation Formula displayed correctly with Condo and Shop formulas. Annual setup for 2026 visible with Water/Electricity totals. Record Payment tab shows 'Select Unit to Record Payment' with all 8 units listed (C1-C5 condos, S1-S3 shops) with correct balances."
 
   - task: "Reports Screen"
     implemented: true
