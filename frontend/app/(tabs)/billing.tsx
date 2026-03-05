@@ -383,26 +383,46 @@ export default function BillingScreen() {
                       <Text style={styles.shareValue}>{formatCurrency(setup.shop_annual_share)}</Text>
                     </View>
                   </View>
-                  {setup.status === 'draft' && (
+                  {setup.status !== 'posted' && (
                     <View style={styles.setupActions}>
-                      <Button
-                        title="Approve"
-                        onPress={() => handleApprove(setup.id)}
-                        variant="secondary"
-                        size="small"
-                        style={styles.actionButton}
-                      />
+                      <TouchableOpacity
+                        style={styles.iconButton}
+                        onPress={() => openEditSetupModal(setup)}
+                      >
+                        <Ionicons name="pencil" size={18} color="#2563eb" />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.iconButton, styles.deleteButton]}
+                        onPress={() => handleDeleteSetup(setup)}
+                      >
+                        <Ionicons name="trash" size={18} color="#dc2626" />
+                      </TouchableOpacity>
+                      {setup.status === 'draft' && (
+                        <Button
+                          title="Approve"
+                          onPress={() => handleApprove(setup.id)}
+                          variant="success"
+                          size="small"
+                          style={styles.actionButton}
+                          loading={isSubmitting}
+                        />
+                      )}
+                      {setup.status === 'approved' && (
+                        <Button
+                          title="Post Charges"
+                          onPress={() => handlePost(setup.id)}
+                          variant="primary"
+                          size="small"
+                          style={styles.actionButton}
+                          loading={isSubmitting}
+                        />
+                      )}
                     </View>
                   )}
-                  {setup.status === 'approved' && (
-                    <View style={styles.setupActions}>
-                      <Button
-                        title="Post Charges"
-                        onPress={() => handlePost(setup.id)}
-                        variant="success"
-                        size="small"
-                        style={styles.actionButton}
-                      />
+                  {setup.status === 'posted' && (
+                    <View style={styles.postedNote}>
+                      <Ionicons name="checkmark-circle" size={16} color="#16a34a" />
+                      <Text style={styles.postedNoteText}>Charges posted to all units</Text>
                     </View>
                   )}
                 </Card>
