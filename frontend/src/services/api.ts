@@ -28,6 +28,10 @@ export const assignOwner = (unitId: string, ownerId: string) =>
 
 // Owners
 export const getOwners = () => api.get('/owners');
+export const createOwner = (data: any) => api.post('/owners', data);
+export const updateOwner = (id: string, data: any) => api.put(`/owners/${id}`, data);
+export const deleteOwner = (id: string) => api.delete(`/owners/${id}`);
+export const resetOwnerPassword = (id: string) => api.post(`/owners/${id}/reset-password`);
 
 // Categories
 export const getCategories = () => api.get('/categories');
