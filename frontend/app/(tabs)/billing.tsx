@@ -202,7 +202,7 @@ export default function BillingScreen() {
         <Text style={styles.title}>Billing</Text>
       </View>
 
-      {isAdmin() && (
+      {isAdminUser && (
         <View style={styles.tabs}>
           <TouchableOpacity
             style={[styles.tab, activeTab === 'allocation' && styles.tabActive]}
@@ -230,7 +230,7 @@ export default function BillingScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {activeTab === 'allocation' && isAdmin() ? (
+        {activeTab === 'allocation' && isAdminUser ? (
           <View>
             <Button
               title="New Annual Setup"
