@@ -131,6 +131,9 @@ backend:
       - working: true
         agent: "main"
         comment: "8 units seeded (5 condos, 3 shops), CRUD operations working"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: GET /units returns exactly 8 units (5 condos C1-C5, 3 shops S1-S3). GET /units/{id} works correctly. Unit data structure complete with balances, owner info, and proper typing."
 
   - task: "Owner Management"
     implemented: true
@@ -143,6 +146,9 @@ backend:
       - working: true
         agent: "main"
         comment: "Owner list, unit assignment working"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Owner management endpoints functional. Admin user created successfully with proper role-based access control."
 
   - task: "Annual Allocation Setup & Formula"
     implemented: true
@@ -155,6 +161,9 @@ backend:
       - working: true
         agent: "main"
         comment: "Kerala HOA formula correctly calculates: Condo=W/5+0.40E/5+0.60E/8, Shop=0.60E/8. Tested with W=50000, E=100000, got Condo=25500, Shop=7500"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Kerala HOA formula mathematically verified. W=₹50,000, E=₹100,000 → Condo=₹25,500 (10,000+8,000+7,500), Shop=₹7,500. Formula implementation is 100% accurate."
 
   - task: "Post Annual Charges"
     implemented: true
@@ -167,6 +176,9 @@ backend:
       - working: true
         agent: "main"
         comment: "Posted 8 charges to all units, balances updated correctly"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Annual charges posting verified. 8 charges created (5 condos × ₹25,500 + 3 shops × ₹7,500). Unit balances updated correctly. Approve→Post workflow functioning."
 
   - task: "Payment Recording"
     implemented: true
@@ -179,6 +191,9 @@ backend:
       - working: true
         agent: "main"
         comment: "Payment recorded for C1, balance reduced, charge marked as paid"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Payment recording works perfectly. Recorded ₹10,000 payment for Condo Unit 1, balance updated from ₹25,500 to ₹15,500. Payment appears in GET /payments. Charge status updated correctly."
 
   - task: "Year-End True-Up Report"
     implemented: true
@@ -191,6 +206,9 @@ backend:
       - working: true
         agent: "main"
         comment: "Report shows settled/due/credit status per unit, correct totals"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: True-up report generation successful for 2026. Shows 8 units with proper opening balance, assessed amounts, payments, and net balances. Credit/due status calculated correctly. Total outstanding: ₹124,500."
 
   - task: "Dashboard APIs"
     implemented: true
@@ -203,6 +221,9 @@ backend:
       - working: true
         agent: "main"
         comment: "Admin dashboard shows stats, owner dashboard ready"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Admin dashboard returns complete statistics: 8 total units (5 condos, 3 shops), outstanding balances, recent payments, allocation status. All required fields present and accurate."
 
 frontend:
   - task: "Login/Register Screens"
