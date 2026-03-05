@@ -610,6 +610,85 @@ export default function BillingScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Edit Setup Modal */}
+      <Modal
+        visible={showEditSetupModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowEditSetupModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Edit Annual Setup - {selectedSetup?.year}</Text>
+              <TouchableOpacity onPress={() => setShowEditSetupModal(false)}>
+                <Ionicons name="close" size={24} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+            <Input
+              label="Water Total (W) in ₹"
+              value={editSetup.water_total}
+              onChangeText={(text) => setEditSetup({ ...editSetup, water_total: text })}
+              placeholder="e.g., 50000"
+              keyboardType="decimal-pad"
+            />
+            <Input
+              label="Electricity Total (E) in ₹"
+              value={editSetup.electricity_total}
+              onChangeText={(text) => setEditSetup({ ...editSetup, electricity_total: text })}
+              placeholder="e.g., 100000"
+              keyboardType="decimal-pad"
+            />
+            <Input
+              label="Notes (Optional)"
+              value={editSetup.notes}
+              onChangeText={(text) => setEditSetup({ ...editSetup, notes: text })}
+              placeholder="Any notes..."
+              multiline
+            />
+            <Button 
+              title="Save Changes" 
+              onPress={handleEditSetup} 
+              loading={isSubmitting}
+              disabled={isSubmitting}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Confirm Modal for Web */}
+      <Modal
+        visible={showConfirmModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowConfirmModal(false)}
+      >
+        <View style={styles.resultModalOverlay}>
+          <View style={styles.resultModalContent}>
+            <Ionicons name="help-circle" size={48} color="#d97706" />
+            <Text style={styles.resultModalTitle}>{confirmAction?.title}</Text>
+            <Text style={styles.resultModalMessage}>{confirmAction?.message}</Text>
+            <View style={styles.confirmButtons}>
+              <Pressable 
+                style={styles.cancelConfirmButton}
+                onPress={() => setShowConfirmModal(false)}
+              >
+                <Text style={styles.cancelConfirmButtonText}>Cancel</Text>
+              </Pressable>
+              <Pressable 
+                style={styles.confirmConfirmButton}
+                onPress={() => {
+                  setShowConfirmModal(false);
+                  confirmAction?.onConfirm();
+                }}
+              >
+                <Text style={styles.confirmConfirmButtonText}>Confirm</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
