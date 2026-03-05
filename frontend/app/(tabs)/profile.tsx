@@ -142,18 +142,18 @@ export default function ProfileScreen() {
             <Text style={styles.modalTitle}>Logout</Text>
             <Text style={styles.modalMessage}>Are you sure you want to logout?</Text>
             <View style={styles.modalButtons}>
-              <TouchableOpacity 
+              <Pressable 
                 style={styles.cancelButton}
                 onPress={() => setShowLogoutModal(false)}
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
+              </Pressable>
+              <Pressable 
                 style={styles.confirmButton}
                 onPress={performLogout}
               >
                 <Text style={styles.confirmButtonText}>Logout</Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
           </View>
         </View>
