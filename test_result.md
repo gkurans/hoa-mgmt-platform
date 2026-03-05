@@ -297,6 +297,9 @@ frontend:
       - working: true
         agent: "main"
         comment: "Year-end true-up report with unit details, carry forward button"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Reports screen fully functional. 'Year-End True-Up Report' header displayed correctly. Year selector shows all 4 years (2024, 2025, 2026, 2027) with 2026 selected. Summary cards show Total Outstanding ₹1,24,500.00 and Total Credits ₹15,000.00. Unit Details section displays all units with proper status badges (CREDIT for C1, DUE for others). Detailed breakdown shows Opening Balance, Total Assessed, Total Paid, and Net Balance for each unit."
 
   - task: "Profile Screen"
     implemented: true
