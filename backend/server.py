@@ -533,6 +533,99 @@ async def get_owners(user: dict = Depends(require_admin)):
         ) for u in users
     ]
 
+@api_router.post("/owners", response_model=UserResponse)
+async def create_owner(owner_data: OwnerCreate, user: dict = Depends(require_admin)):
+    """Admin creates a new owner account"""
+    # Check if email exists
+    existing = await db.users.find_one({"email": owner_data.email})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Generate password if not provided
+    password = owner_data.password if owner_data.password else "Welcome123"
+    
+    user_doc = {
+        "email": owner_data.email,
+        "password": hash_password(password),
+        "name": owner_data.name,
+        "phone": owner_data.phone,
+        "role": "owner",
+        "unit_ids": [],
+        "created_at": datetime.utcnow()
+    }
+    result = await db.users.insert_one(user_doc)
+    
+    await log_audit("owner", str(result.inserted_id), "create", None, {"email": owner_data.email, "name": owner_data.name}, str(user["_id"]))
+    
+    return UserResponse(
+        id=str(result.inserted_id),
+        email=owner_data.email,
+        name=owner_data.name,
+        phone=owner_data.phone,
+        role="owner",
+        unit_ids=[],
+        created_at=user_doc["created_at"]
+    )
+
+@api_router.put("/owners/{owner_id}", response_model=UserResponse)
+async def update_owner(owner_id: str, update_data: OwnerUpdate, user: dict = Depends(require_admin)):
+    """Admin updates an owner's details"""
+    owner = await db.users.find_one({"_id": ObjectId(owner_id)})
+    if not owner:
+        raise HTTPException(status_code=404, detail="Owner not found")
+    
+    update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
+    if update_dict:
+        await db.users.update_one({"_id": ObjectId(owner_id)}, {"$set": update_dict})
+        await log_audit("owner", owner_id, "update", {"name": owner["name"]}, update_dict, str(user["_id"]))
+    
+    updated = await db.users.find_one({"_id": ObjectId(owner_id)})
+    return UserResponse(
+        id=str(updated["_id"]),
+        email=updated["email"],
+        name=updated["name"],
+        phone=updated.get("phone", ""),
+        role=updated["role"],
+        unit_ids=updated.get("unit_ids", []),
+        created_at=updated["created_at"]
+    )
+
+@api_router.delete("/owners/{owner_id}")
+async def delete_owner(owner_id: str, user: dict = Depends(require_admin)):
+    """Admin deletes an owner account"""
+    owner = await db.users.find_one({"_id": ObjectId(owner_id)})
+    if not owner:
+        raise HTTPException(status_code=404, detail="Owner not found")
+    
+    if owner["role"] == "admin":
+        raise HTTPException(status_code=400, detail="Cannot delete admin account")
+    
+    # Remove owner from any units
+    await db.units.update_many(
+        {"primary_owner_id": owner_id},
+        {"$set": {"primary_owner_id": None}}
+    )
+    
+    await db.users.delete_one({"_id": ObjectId(owner_id)})
+    await log_audit("owner", owner_id, "delete", {"email": owner["email"]}, None, str(user["_id"]))
+    
+    return {"message": "Owner deleted successfully"}
+
+@api_router.post("/owners/{owner_id}/reset-password")
+async def reset_owner_password(owner_id: str, user: dict = Depends(require_admin)):
+    """Admin resets owner's password to default"""
+    owner = await db.users.find_one({"_id": ObjectId(owner_id)})
+    if not owner:
+        raise HTTPException(status_code=404, detail="Owner not found")
+    
+    new_password = "Welcome123"
+    await db.users.update_one(
+        {"_id": ObjectId(owner_id)},
+        {"$set": {"password": hash_password(new_password)}}
+    )
+    
+    return {"message": f"Password reset to: {new_password}"}
+
 # ============== CATEGORY ROUTES ==============
 
 @api_router.get("/categories", response_model=List[CategoryResponse])
