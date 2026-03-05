@@ -1354,10 +1354,6 @@ async def create_adjustment(adjustment_data: AdjustmentCreate, user: dict = Depe
         created_by=user["name"],
         created_at=adjustment_doc["created_at"]
     )
-        notes=payment_data.notes,
-        recorded_by=user["name"],
-        created_at=payment_doc["created_at"]
-    )
 
 # ============== REPORTS ROUTES ==============
 
