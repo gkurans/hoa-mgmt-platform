@@ -192,12 +192,69 @@ class PaymentCreate(BaseModel):
     method: Literal["upi", "bank_transfer", "cash", "cheque"] = "upi"
     reference: str = ""
     notes: str = ""
+    charge_id: Optional[str] = None  # Link to specific charge
+    category_id: Optional[str] = None  # Or link to category
 
 class PaymentResponse(BaseModel):
     id: str
     unit_id: str
     unit_display: str
     amount: float
+    payment_date: str
+    method: str
+    reference: str
+    notes: str
+    charge_id: Optional[str] = None
+    charge_description: Optional[str] = None
+    category_name: Optional[str] = None
+    recorded_by: str
+    created_at: datetime
+
+# Expense (Outgoing Payment to Vendors) Models
+class ExpenseCreate(BaseModel):
+    vendor_name: str
+    category_id: str
+    amount: float
+    payment_date: str  # YYYY-MM-DD
+    description: str = ""
+    method: Literal["upi", "bank_transfer", "cash", "cheque"] = "bank_transfer"
+    reference: str = ""
+    invoice_number: str = ""
+
+class ExpenseResponse(BaseModel):
+    id: str
+    vendor_name: str
+    category_id: str
+    category_name: str
+    amount: float
+    payment_date: str
+    description: str
+    method: str
+    reference: str
+    invoice_number: str
+    recorded_by: str
+    created_at: datetime
+
+# Adjustment Model (for post-posting corrections)
+class AdjustmentCreate(BaseModel):
+    unit_id: str
+    category_id: str
+    amount: float  # Positive for debit (add charge), Negative for credit
+    reason: str
+    period: str = ""
+
+class AdjustmentResponse(BaseModel):
+    id: str
+    unit_id: str
+    unit_display: str
+    category_id: str
+    category_name: str
+    amount: float
+    adjustment_type: str  # credit or debit
+    reason: str
+    period: str
+    created_by: str
+    created_at: datetime
     payment_date: str
     method: str
     reference: str
