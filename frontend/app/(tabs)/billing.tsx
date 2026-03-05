@@ -17,10 +17,11 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   getAnnualSetups,
   createAnnualSetup,
+  updateAnnualSetup,
+  deleteAnnualSetup,
   approveSetup,
   postCharges,
   getUnits,
-  getCategories,
   createPayment,
 } from '../../src/services/api';
 import { useAuthStore } from '../../src/store/authStore';
