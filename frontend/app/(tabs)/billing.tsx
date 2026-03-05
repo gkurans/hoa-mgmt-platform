@@ -57,15 +57,25 @@ export default function BillingScreen() {
   const [setups, setSetups] = useState<AnnualSetup[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [showSetupModal, setShowSetupModal] = useState(false);
+  const [showEditSetupModal, setShowEditSetupModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
+  const [selectedSetup, setSelectedSetup] = useState<AnnualSetup | null>(null);
   const [activeTab, setActiveTab] = useState<'allocation' | 'payments'>('allocation');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showResultModal, setShowResultModal] = useState(false);
   const [resultMessage, setResultMessage] = useState({ title: '', message: '', isError: false });
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
 
   const [newSetup, setNewSetup] = useState({
     year: new Date().getFullYear(),
+    water_total: '',
+    electricity_total: '',
+    notes: '',
+  });
+
+  const [editSetup, setEditSetup] = useState({
     water_total: '',
     electricity_total: '',
     notes: '',
@@ -85,6 +95,18 @@ export default function BillingScreen() {
       setShowResultModal(true);
     } else {
       Alert.alert(title, message);
+    }
+  };
+
+  const showConfirm = (title: string, message: string, onConfirm: () => void) => {
+    if (Platform.OS === 'web') {
+      setConfirmAction({ title, message, onConfirm });
+      setShowConfirmModal(true);
+    } else {
+      Alert.alert(title, message, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Confirm', onPress: onConfirm },
+      ]);
     }
   };
 
