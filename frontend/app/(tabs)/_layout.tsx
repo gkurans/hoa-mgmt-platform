@@ -4,8 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../src/store/authStore';
 
 export default function TabLayout() {
-  const { user } = useAuthStore();
-  const isAdminUser = user?.role === 'admin' || user?.role === 'treasurer';
+  const { isAdmin } = useAuthStore();
+  const isAdminUser = isAdmin;
 
   return (
     <Tabs
