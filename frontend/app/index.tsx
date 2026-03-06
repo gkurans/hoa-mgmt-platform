@@ -1,14 +1,22 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { useAuthStore } from '../src/store/authStore';
 import LoadingSpinner from '../src/components/LoadingSpinner';
 
 export default function Index() {
-  const { isLoading, isAuthenticated } = useAuthStore();
+  const { isLoading, isAuthenticated, loadStoredAuth } = useAuthStore();
+  const hasNavigated = useRef(false);
 
   useEffect(() => {
-    if (!isLoading) {
+    // Always reload auth state when this component mounts
+    loadStoredAuth();
+  }, []);
+
+  useEffect(() => {
+    // Prevent double navigation
+    if (!isLoading && !hasNavigated.current) {
+      hasNavigated.current = true;
       if (isAuthenticated) {
         router.replace('/(tabs)/dashboard');
       } else {
