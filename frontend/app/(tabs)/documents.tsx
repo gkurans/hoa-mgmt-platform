@@ -172,7 +172,6 @@ export default function DocumentsScreen() {
   };
 
   const navigateToFolder = (folderId: string | null) => {
-    setLoading(true);
     setCurrentFolderId(folderId);
     setSearchResults(null);
     setSearchQuery('');
