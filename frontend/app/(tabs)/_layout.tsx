@@ -5,7 +5,6 @@ import { useAuthStore } from '../../src/store/authStore';
 
 export default function TabLayout() {
   const { isAdmin } = useAuthStore();
-  const isAdminUser = isAdmin;
 
   return (
     <Tabs
@@ -17,12 +16,12 @@ export default function TabLayout() {
           backgroundColor: '#fff',
           borderTopWidth: 1,
           borderTopColor: '#e2e8f0',
-          paddingTop: 8,
-          paddingBottom: 8,
-          height: 70,
+          paddingTop: 4,
+          paddingBottom: 4,
+          height: 60,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: '500',
         },
       }}
@@ -69,6 +68,15 @@ export default function TabLayout() {
           title: 'Reports',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="bar-chart" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="documents"
+        options={{
+          title: 'Docs',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="folder" size={size} color={color} />
           ),
         }}
       />
