@@ -1779,6 +1779,7 @@ class AuditLogResponse(BaseModel):
     performed_by_name: Optional[str] = None
     timestamp: datetime
     description: Optional[str] = None
+    reason: Optional[str] = None
 
 @api_router.get("/audit-logs")
 async def get_audit_logs(
