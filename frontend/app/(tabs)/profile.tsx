@@ -10,17 +10,25 @@ import {
   Modal,
   Pressable,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../src/store/authStore';
+import { updateProfile } from '../../src/services/api';
 import Card from '../../src/components/Card';
 import Button from '../../src/components/Button';
 
 export default function ProfileScreen() {
   const { user, logout, loadStoredAuth, isLoading } = useAuthStore();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   // Ensure user data is loaded
   useEffect(() => {
@@ -28,6 +36,45 @@ export default function ProfileScreen() {
       loadStoredAuth();
     }
   }, [user]);
+
+  const openEditModal = () => {
+    setEditName(user?.name || '');
+    setEditPhone(user?.phone || '');
+    setEditEmail(user?.email || '');
+    setShowEditModal(true);
+  };
+
+  const handleSaveProfile = async () => {
+    setSaving(true);
+    try {
+      const updates: any = {};
+      if (editName !== user?.name) updates.name = editName;
+      if (editPhone !== user?.phone) updates.phone = editPhone;
+      if (editEmail !== user?.email) updates.email = editEmail;
+      
+      if (Object.keys(updates).length === 0) {
+        setShowEditModal(false);
+        return;
+      }
+
+      await updateProfile(updates);
+      
+      // Update local state - reload auth to refresh user data
+      await loadStoredAuth();
+      
+      setShowEditModal(false);
+      setSuccessMessage('Owner information updated successfully.');
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (error: any) {
+      if (Platform.OS === 'web') {
+        alert(error.response?.data?.detail || 'Failed to update profile');
+      } else {
+        Alert.alert('Error', error.response?.data?.detail || 'Failed to update profile');
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleLogout = () => {
     if (Platform.OS === 'web') {
@@ -70,7 +117,17 @@ export default function ProfileScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Profile</Text>
+        <TouchableOpacity style={styles.editHeaderButton} onPress={openEditModal}>
+          <Ionicons name="pencil" size={20} color="#2563eb" />
+        </TouchableOpacity>
       </View>
+
+      {successMessage ? (
+        <View style={styles.successBanner}>
+          <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
+          <Text style={styles.successText}>{successMessage}</Text>
+        </View>
+      ) : null}
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Card style={styles.profileCard}>
@@ -85,7 +142,23 @@ export default function ProfileScreen() {
         </Card>
 
         <Card style={styles.infoCard}>
-          <Text style={styles.sectionTitle}>Account Information</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Account Information</Text>
+            <TouchableOpacity style={styles.editButton} onPress={openEditModal}>
+              <Text style={styles.editButtonText}>Edit</Text>
+              <Ionicons name="pencil" size={14} color="#2563eb" />
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.infoRow}>
+            <View style={styles.infoIcon}>
+              <Ionicons name="person" size={20} color="#64748b" />
+            </View>
+            <View style={styles.infoContent}>
+              <Text style={styles.infoLabel}>Name</Text>
+              <Text style={styles.infoValue}>{user?.name}</Text>
+            </View>
+          </View>
           
           <View style={styles.infoRow}>
             <View style={styles.infoIcon}>
@@ -148,6 +221,78 @@ export default function ProfileScreen() {
           style={styles.logoutButton}
         />
       </ScrollView>
+
+      {/* Edit Profile Modal */}
+      <Modal
+        visible={showEditModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowEditModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.editModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Edit Profile</Text>
+              <TouchableOpacity onPress={() => setShowEditModal(false)}>
+                <Ionicons name="close" size={24} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.modalBody}>
+              <Text style={styles.inputLabel}>Name</Text>
+              <TextInput
+                style={styles.input}
+                value={editName}
+                onChangeText={setEditName}
+                placeholder="Enter your name"
+              />
+              
+              <Text style={styles.inputLabel}>Phone</Text>
+              <TextInput
+                style={styles.input}
+                value={editPhone}
+                onChangeText={setEditPhone}
+                placeholder="Enter your phone number"
+                keyboardType="phone-pad"
+              />
+              
+              <Text style={styles.inputLabel}>Email</Text>
+              <TextInput
+                style={styles.input}
+                value={editEmail}
+                onChangeText={setEditEmail}
+                placeholder="Enter your email"
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+              
+              <Text style={styles.editNote}>
+                Note: You can only edit your personal contact information. Unit allocation and billing data cannot be modified.
+              </Text>
+            </ScrollView>
+            
+            <View style={styles.modalFooter}>
+              <Pressable 
+                style={styles.cancelButton} 
+                onPress={() => setShowEditModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </Pressable>
+              <Pressable 
+                style={[styles.saveButton, saving && styles.saveButtonDisabled]} 
+                onPress={handleSaveProfile}
+                disabled={saving}
+              >
+                {saving ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.saveButtonText}>Save Changes</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Logout Confirmation Modal for Web */}
       <Modal
