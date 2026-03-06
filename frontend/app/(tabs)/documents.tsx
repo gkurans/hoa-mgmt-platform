@@ -376,14 +376,48 @@ export default function DocumentsScreen() {
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
       } else {
-        // For native: use Linking (may need different approach for auth)
+        // For native (iOS/Android): download with auth and use sharing
         const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
         const downloadUrl = `${API_URL}/api/documents/files/${file.id}/download`;
-        await Linking.openURL(downloadUrl);
+        
+        // Get auth token
+        const token = await AsyncStorage.getItem('token');
+        if (!token) {
+          Alert.alert('Error', 'Please login again to download files');
+          return;
+        }
+        
+        // Show downloading indicator
+        Alert.alert('Downloading', 'Please wait...');
+        
+        // Download file to cache directory
+        const fileUri = FileSystem.cacheDirectory + file.original_filename;
+        const downloadResult = await FileSystem.downloadAsync(downloadUrl, fileUri, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        
+        if (downloadResult.status !== 200) {
+          Alert.alert('Error', 'Failed to download file');
+          return;
+        }
+        
+        // Check if sharing is available
+        const isSharingAvailable = await Sharing.isAvailableAsync();
+        if (isSharingAvailable) {
+          // Open share dialog to save/open the file
+          await Sharing.shareAsync(downloadResult.uri, {
+            mimeType: file.mime_type,
+            dialogTitle: `Open ${file.original_filename}`,
+          });
+        } else {
+          Alert.alert('Success', `File downloaded to: ${downloadResult.uri}`);
+        }
       }
     } catch (error: any) {
       console.error('Download error:', error);
-      const errorMessage = error.response?.data?.detail || 'Could not download file';
+      const errorMessage = error.response?.data?.detail || error.message || 'Could not download file';
       if (Platform.OS === 'web') {
         alert(errorMessage);
       } else {
