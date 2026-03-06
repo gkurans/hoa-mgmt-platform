@@ -172,7 +172,7 @@ def create_owner_manual():
         "Welcome to Unity Towers Property Association Management System! This application helps you stay "
         "connected with your property association, view your unit information, track charges and payments, "
         "access important documents, and stay informed about association activities.",
-        styles['BodyText']
+        styles['CustomBody']
     ))
     story.append(Spacer(1, 0.2*inch))
     
@@ -202,7 +202,7 @@ def create_owner_manual():
     story.append(Paragraph("Creating Your Account", styles['SectionTitle']))
     story.append(Paragraph(
         "If you don't have an account yet, you can register through the app:",
-        styles['BodyText']
+        styles['CustomBody']
     ))
     steps = [
         "1. Open the Unity Towers app or visit the web portal",
@@ -238,7 +238,7 @@ def create_owner_manual():
     story.append(Paragraph(
         "The Dashboard is your home screen, providing a quick overview of the property association's "
         "financial status and key metrics.",
-        styles['BodyText']
+        styles['CustomBody']
     ))
     
     story.append(Paragraph("Dashboard Metrics:", styles['SectionTitle']))
@@ -260,7 +260,7 @@ def create_owner_manual():
     story.append(Paragraph("Recent Activity:", styles['SectionTitle']))
     story.append(Paragraph(
         "The dashboard also shows recent payment activity, helping you stay informed about association finances.",
-        styles['BodyText']
+        styles['CustomBody']
     ))
     story.append(PageBreak())
     
@@ -269,7 +269,7 @@ def create_owner_manual():
     story.append(Paragraph(
         "The Units tab displays all property units. As an owner, you can view unit information but cannot "
         "make changes.",
-        styles['BodyText']
+        styles['CustomBody']
     ))
     
     story.append(Paragraph("Unit Information:", styles['SectionTitle']))
@@ -298,13 +298,13 @@ def create_owner_manual():
     story.append(Paragraph("5. Billing & Payments", styles['ChapterTitle']))
     story.append(Paragraph(
         "The Billing tab shows the association's allocation formula, annual charges, and payment records.",
-        styles['BodyText']
+        styles['CustomBody']
     ))
     
     story.append(Paragraph("Annual Allocation Formula:", styles['SectionTitle']))
     story.append(Paragraph(
         "Unity Towers uses a specific formula to calculate annual maintenance charges:",
-        styles['BodyText']
+        styles['CustomBody']
     ))
     story.append(Paragraph("• Condo: W/5 + 0.40×E/5 + 0.60×E/8", styles['BulletText']))
     story.append(Paragraph("• Shop: 0.60×E/8", styles['BulletText']))
@@ -315,7 +315,7 @@ def create_owner_manual():
     story.append(Paragraph(
         "You can see annual setup information including water and electricity totals, and how charges "
         "are calculated for each unit type.",
-        styles['BodyText']
+        styles['CustomBody']
     ))
     
     story.append(Spacer(1, 0.2*inch))
@@ -323,7 +323,7 @@ def create_owner_manual():
     story.append(Paragraph(
         "To make payments, please contact your HOA Administrator or use the designated payment channels "
         "provided by your association.",
-        styles['BodyText']
+        styles['CustomBody']
     ))
     story.append(PageBreak())
     
@@ -331,7 +331,7 @@ def create_owner_manual():
     story.append(Paragraph("6. Activity Log", styles['ChapterTitle']))
     story.append(Paragraph(
         "The Activity tab provides a complete audit trail of all association activities and changes.",
-        styles['BodyText']
+        styles['CustomBody']
     ))
     
     story.append(Paragraph("What's Logged:", styles['SectionTitle']))
@@ -351,7 +351,7 @@ def create_owner_manual():
     story.append(Paragraph(
         "Use the date filters to view activities within a specific time range. This helps you track "
         "changes and maintain transparency.",
-        styles['BodyText']
+        styles['CustomBody']
     ))
     story.append(PageBreak())
     
@@ -359,7 +359,7 @@ def create_owner_manual():
     story.append(Paragraph("7. Documents", styles['ChapterTitle']))
     story.append(Paragraph(
         "The Documents tab provides access to all HOA documents organized in folders.",
-        styles['BodyText']
+        styles['CustomBody']
     ))
     
     story.append(Paragraph("Document Categories:", styles['SectionTitle']))
@@ -392,7 +392,7 @@ def create_owner_manual():
     story.append(Paragraph("8. Profile Management", styles['ChapterTitle']))
     story.append(Paragraph(
         "The Profile tab allows you to view and update your personal information.",
-        styles['BodyText']
+        styles['CustomBody']
     ))
     
     story.append(Paragraph("Updating Your Information:", styles['SectionTitle']))
@@ -409,7 +409,7 @@ def create_owner_manual():
     story.append(Paragraph("Logging Out:", styles['SectionTitle']))
     story.append(Paragraph(
         "Tap the 'Logout' button at the bottom of the Profile screen. Confirm when prompted.",
-        styles['BodyText']
+        styles['CustomBody']
     ))
     story.append(PageBreak())
     
@@ -431,7 +431,7 @@ def create_owner_manual():
     
     for q, a in faqs:
         story.append(Paragraph(q, styles['SectionTitle']))
-        story.append(Paragraph(a, styles['BodyText']))
+        story.append(Paragraph(a, styles['CustomBody']))
         story.append(Spacer(1, 0.1*inch))
     
     story.append(Spacer(1, 0.5*inch))
@@ -503,7 +503,7 @@ def create_admin_manual():
     story.append(Paragraph(
         "Welcome to the Unity Towers HOA Management System Administrator Guide. As an administrator, "
         "you have full access to manage units, owners, billing, documents, and all financial operations.",
-        styles['BodyText']
+        styles['CustomBody']
     ))
     
     story.append(Paragraph("Administrator Capabilities:", styles['SectionTitle']))
@@ -521,7 +521,7 @@ def create_admin_manual():
     
     story.append(Spacer(1, 0.2*inch))
     story.append(Paragraph("Initial Login:", styles['SectionTitle']))
-    story.append(Paragraph("Default Admin Credentials:", styles['BodyText']))
+    story.append(Paragraph("Default Admin Credentials:", styles['CustomBody']))
     story.append(Paragraph("• Email: admin@unitytowers.com", styles['BulletText']))
     story.append(Paragraph("• Password: admin123", styles['BulletText']))
     story.append(Paragraph(
@@ -534,7 +534,7 @@ def create_admin_manual():
     story.append(Paragraph("2. Dashboard Overview", styles['ChapterTitle']))
     story.append(Paragraph(
         "The Dashboard provides a comprehensive overview of your property association's status.",
-        styles['BodyText']
+        styles['CustomBody']
     ))
     
     story.append(Paragraph("Key Metrics:", styles['SectionTitle']))
@@ -570,13 +570,13 @@ def create_admin_manual():
     story.append(Paragraph("3. Unit Management", styles['ChapterTitle']))
     story.append(Paragraph(
         "The Units tab allows you to view and manage all property units.",
-        styles['BodyText']
+        styles['CustomBody']
     ))
     
     story.append(Paragraph("Viewing Units:", styles['SectionTitle']))
     story.append(Paragraph(
         "Units are organized by type (Condos and Shops). Each unit card shows:",
-        styles['BodyText']
+        styles['CustomBody']
     ))
     bullets = [
         "• Unit identifier (e.g., C1, S1)",
@@ -612,14 +612,14 @@ def create_admin_manual():
     story.append(Paragraph("4. Owner Management", styles['ChapterTitle']))
     story.append(Paragraph(
         "Owners can self-register through the app, or you can manage them through the system.",
-        styles['BodyText']
+        styles['CustomBody']
     ))
     
     story.append(Paragraph("Owner Self-Registration:", styles['SectionTitle']))
     story.append(Paragraph(
         "Owners can create their own accounts by clicking 'Sign Up' on the login screen. "
         "They will automatically be assigned the 'owner' role.",
-        styles['BodyText']
+        styles['CustomBody']
     ))
     
     story.append(Spacer(1, 0.2*inch))
@@ -646,11 +646,11 @@ def create_admin_manual():
     story.append(Paragraph("5. Billing & Annual Allocation", styles['ChapterTitle']))
     story.append(Paragraph(
         "The Billing tab is where you manage annual charges and the allocation formula.",
-        styles['BodyText']
+        styles['CustomBody']
     ))
     
     story.append(Paragraph("Unity Towers Allocation Formula:", styles['SectionTitle']))
-    story.append(Paragraph("The system uses the Kerala HOA formula:", styles['BodyText']))
+    story.append(Paragraph("The system uses the Kerala HOA formula:", styles['CustomBody']))
     story.append(Spacer(1, 0.1*inch))
     
     formula_data = [
@@ -710,7 +710,7 @@ def create_admin_manual():
     story.append(Paragraph("6. Recording Payments", styles['ChapterTitle']))
     story.append(Paragraph(
         "Record payments received from unit owners to update their account balances.",
-        styles['BodyText']
+        styles['CustomBody']
     ))
     
     story.append(Paragraph("Recording a Payment:", styles['SectionTitle']))
@@ -747,7 +747,7 @@ def create_admin_manual():
     story.append(Paragraph("7. Managing Expenses", styles['ChapterTitle']))
     story.append(Paragraph(
         "Track association expenses and outgoing payments to vendors.",
-        styles['BodyText']
+        styles['CustomBody']
     ))
     
     story.append(Paragraph("Recording an Expense:", styles['SectionTitle']))
@@ -781,13 +781,13 @@ def create_admin_manual():
     story.append(Paragraph("8. Reports & Year-End", styles['ChapterTitle']))
     story.append(Paragraph(
         "Generate comprehensive reports for financial review and year-end closing.",
-        styles['BodyText']
+        styles['CustomBody']
     ))
     
     story.append(Paragraph("Year-End True-Up Report:", styles['SectionTitle']))
     story.append(Paragraph(
         "This report shows each unit's financial status for the selected year:",
-        styles['BodyText']
+        styles['CustomBody']
     ))
     bullets = [
         "• Opening Balance - Balance at start of year",
@@ -822,7 +822,7 @@ def create_admin_manual():
     story.append(Paragraph("9. Document Management", styles['ChapterTitle']))
     story.append(Paragraph(
         "Organize and store all HOA documents for easy access by administrators and owners.",
-        styles['BodyText']
+        styles['CustomBody']
     ))
     
     story.append(Paragraph("Default Folder Structure:", styles['SectionTitle']))
@@ -868,7 +868,7 @@ def create_admin_manual():
     story.append(Paragraph("Supported File Types:", styles['SectionTitle']))
     story.append(Paragraph(
         "PDF, DOC, DOCX, XLS, XLSX, JPG, PNG, CSV, TXT (Max 25MB per file)",
-        styles['BodyText']
+        styles['CustomBody']
     ))
     story.append(PageBreak())
     
@@ -876,7 +876,7 @@ def create_admin_manual():
     story.append(Paragraph("10. Audit Log & Compliance", styles['ChapterTitle']))
     story.append(Paragraph(
         "The Activity tab provides a complete audit trail for transparency and compliance.",
-        styles['BodyText']
+        styles['CustomBody']
     ))
     
     story.append(Paragraph("What's Tracked:", styles['SectionTitle']))
@@ -896,7 +896,7 @@ def create_admin_manual():
     story.append(Paragraph("Using Filters:", styles['SectionTitle']))
     story.append(Paragraph(
         "Filter the audit log by date range to find specific activities. This is useful for:",
-        styles['BodyText']
+        styles['CustomBody']
     ))
     bullets = [
         "• Monthly financial reviews",
