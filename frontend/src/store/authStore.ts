@@ -23,6 +23,7 @@ interface AuthState {
   register: (name: string, email: string, password: string, phone: string) => Promise<void>;
   logout: () => Promise<void>;
   loadStoredAuth: () => Promise<void>;
+  updateUser: (userData: Partial<User>) => Promise<void>;
   isAdmin: boolean;
   resetLoading: () => void;
 }
