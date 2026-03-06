@@ -230,18 +230,20 @@ export default function BillingScreen() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [setupsRes, unitsRes, categoriesRes, expensesRes, adjustmentsRes] = await Promise.all([
+      const [setupsRes, unitsRes, categoriesRes, expensesRes, adjustmentsRes, paymentsRes] = await Promise.all([
         getAnnualSetups(),
         getUnits(),
         getCategories(),
         isAdminUser ? getExpenses() : Promise.resolve({ data: [] }),
         isAdminUser ? getAdjustments() : Promise.resolve({ data: [] }),
+        isAdminUser ? getPayments() : Promise.resolve({ data: [] }),
       ]);
       setSetups(setupsRes.data);
       setUnits(unitsRes.data);
       setCategories(categoriesRes.data);
       setExpenses(expensesRes.data);
       setAdjustments(adjustmentsRes.data);
+      setPayments(paymentsRes.data);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
