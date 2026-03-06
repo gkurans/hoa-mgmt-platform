@@ -570,4 +570,41 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingHorizontal: 24,
   },
+  financialSectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1e293b',
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  financialGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 16,
+  },
+  financialCard: {
+    width: '47%',
+    alignItems: 'center',
+    paddingVertical: 16,
+  },
+  financialIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  financialValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1e293b',
+    marginBottom: 4,
+  },
+  financialLabel: {
+    fontSize: 11,
+    color: '#64748b',
+    textAlign: 'center',
+  },
 });
