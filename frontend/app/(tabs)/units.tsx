@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getUnits, getOwners, assignOwner, createUnit, updateUnit, createOwner } from '../../src/services/api';
+import { useAuthStore } from '../../src/store/authStore';
 import Card from '../../src/components/Card';
 import Button from '../../src/components/Button';
 import Input from '../../src/components/Input';
