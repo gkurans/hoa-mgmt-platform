@@ -1906,7 +1906,8 @@ async def get_audit_logs(
             performed_by=str(log.get("performed_by", "system")),
             performed_by_name=user_map.get(str(log.get("performed_by")), "System"),
             timestamp=log.get("timestamp", datetime.utcnow()),
-            description=get_description(log)
+            description=get_description(log),
+            reason=log.get("reason")
         ))
     
     return result
