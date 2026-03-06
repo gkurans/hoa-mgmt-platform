@@ -120,6 +120,7 @@ export default function BillingScreen() {
   const [charges, setCharges] = useState<Charge[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
   
   const [activeTab, setActiveTab] = useState<'allocation' | 'payments' | 'expenses' | 'adjustments'>('allocation');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -132,9 +133,13 @@ export default function BillingScreen() {
   const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
   const [showResultModal, setShowResultModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showEditPaymentModal, setShowEditPaymentModal] = useState(false);
+  const [showEditExpenseModal, setShowEditExpenseModal] = useState(false);
   
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
   const [selectedSetup, setSelectedSetup] = useState<AnnualSetup | null>(null);
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [resultMessage, setResultMessage] = useState({ title: '', message: '', isError: false });
   const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
 
