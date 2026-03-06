@@ -388,31 +388,65 @@ export default function DocumentsScreen() {
         }
         
         // Show downloading indicator
-        Alert.alert('Downloading', 'Please wait...');
+        Alert.alert('Downloading', `Downloading ${file.original_filename}...`);
         
-        // Download file to cache directory
-        const fileUri = FileSystem.cacheDirectory + file.original_filename;
-        const downloadResult = await FileSystem.downloadAsync(downloadUrl, fileUri, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        
-        if (downloadResult.status !== 200) {
-          Alert.alert('Error', 'Failed to download file');
-          return;
-        }
-        
-        // Check if sharing is available
-        const isSharingAvailable = await Sharing.isAvailableAsync();
-        if (isSharingAvailable) {
-          // Open share dialog to save/open the file
-          await Sharing.shareAsync(downloadResult.uri, {
-            mimeType: file.mime_type,
-            dialogTitle: `Open ${file.original_filename}`,
+        try {
+          // Use fetch to download with proper auth headers
+          const response = await fetch(downloadUrl, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
           });
-        } else {
-          Alert.alert('Success', `File downloaded to: ${downloadResult.uri}`);
+          
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Download failed:', response.status, errorText);
+            Alert.alert('Error', `Download failed: ${response.status}`);
+            return;
+          }
+          
+          // Get the blob from response
+          const blob = await response.blob();
+          
+          // Convert blob to base64 using FileReader
+          const reader = new FileReader();
+          reader.onload = async () => {
+            try {
+              const base64Data = reader.result as string;
+              // Remove the data URL prefix to get pure base64
+              const base64Content = base64Data.split(',')[1];
+              
+              // Save to cache directory
+              const fileUri = FileSystem.cacheDirectory + file.original_filename;
+              await FileSystem.writeAsStringAsync(fileUri, base64Content, {
+                encoding: FileSystem.EncodingType.Base64,
+              });
+              
+              // Check if sharing is available
+              const isSharingAvailable = await Sharing.isAvailableAsync();
+              if (isSharingAvailable) {
+                // Open share dialog to save/open the file
+                await Sharing.shareAsync(fileUri, {
+                  mimeType: file.mime_type,
+                  dialogTitle: `Open ${file.original_filename}`,
+                });
+              } else {
+                Alert.alert('Success', `File saved to: ${fileUri}`);
+              }
+            } catch (saveError: any) {
+              console.error('Save error:', saveError);
+              Alert.alert('Error', 'Failed to save file');
+            }
+          };
+          reader.onerror = () => {
+            Alert.alert('Error', 'Failed to process downloaded file');
+          };
+          reader.readAsDataURL(blob);
+          
+        } catch (fetchError: any) {
+          console.error('Fetch error:', fetchError);
+          Alert.alert('Error', `Download failed: ${fetchError.message}`);
         }
       }
     } catch (error: any) {
