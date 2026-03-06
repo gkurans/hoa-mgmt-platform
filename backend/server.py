@@ -1685,7 +1685,8 @@ async def get_financial_metrics():
     }
 
 @api_router.get("/dashboard/admin", response_model=AdminDashboard)
-async def get_admin_dashboard(user: dict = Depends(require_admin)):
+async def get_admin_dashboard(user: dict = Depends(get_current_user)):
+    """Get admin dashboard - available to all authenticated users for transparency"""
     units = await db.units.find().to_list(100)
     
     total_outstanding = sum(u.get("current_balance", 0) for u in units if u.get("current_balance", 0) > 0)
