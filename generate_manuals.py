@@ -68,7 +68,7 @@ def create_styles():
     
     # Body text
     styles.add(ParagraphStyle(
-        name='BodyText',
+        name='CustomBody',
         parent=styles['Normal'],
         fontSize=11,
         textColor=DARK_GRAY,
