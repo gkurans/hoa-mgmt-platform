@@ -90,7 +90,7 @@ export default function DashboardScreen() {
           </View>
         </View>
 
-        {isAdmin() && adminData ? (
+        {isAdmin && adminData ? (
           <View style={styles.content}>
             <View style={styles.statsGrid}>
               <Card style={styles.statCard}>
