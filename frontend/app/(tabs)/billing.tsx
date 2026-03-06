@@ -1454,6 +1454,220 @@ export default function BillingScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* EDIT PAYMENT MODAL */}
+      <Modal
+        visible={showEditPaymentModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowEditPaymentModal(false)}
+      >
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
+          <ScrollView>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Edit Payment</Text>
+                <TouchableOpacity onPress={() => setShowEditPaymentModal(false)}>
+                  <Ionicons name="close" size={24} color="#64748b" />
+                </TouchableOpacity>
+              </View>
+              
+              {selectedPayment && (
+                <View style={styles.selectedUnitInfo}>
+                  <Text style={styles.selectedUnitName}>{selectedPayment.unit_display}</Text>
+                  <Text style={styles.selectedUnitBalance}>
+                    Original: {formatCurrency(selectedPayment.amount)}
+                  </Text>
+                </View>
+              )}
+              
+              <View style={styles.auditWarning}>
+                <Ionicons name="shield-checkmark" size={20} color="#d97706" />
+                <Text style={styles.auditWarningText}>
+                  All edits are logged in the audit trail. A reason is required.
+                </Text>
+              </View>
+              
+              <Input
+                label="Amount (₹)"
+                value={editPaymentForm.amount}
+                onChangeText={(text) => setEditPaymentForm({ ...editPaymentForm, amount: text })}
+                placeholder="Enter new amount"
+                keyboardType="decimal-pad"
+              />
+              <Input
+                label="Payment Date"
+                value={editPaymentForm.payment_date}
+                onChangeText={(text) => setEditPaymentForm({ ...editPaymentForm, payment_date: text })}
+                placeholder="YYYY-MM-DD"
+              />
+              <Text style={styles.fieldLabel}>Payment Method</Text>
+              <View style={styles.methodButtons}>
+                {['upi', 'bank_transfer', 'cash', 'cheque'].map(method => (
+                  <TouchableOpacity
+                    key={method}
+                    style={[
+                      styles.methodButton,
+                      editPaymentForm.method === method && styles.methodButtonActive
+                    ]}
+                    onPress={() => setEditPaymentForm({ ...editPaymentForm, method })}
+                  >
+                    <Text style={[
+                      styles.methodButtonText,
+                      editPaymentForm.method === method && styles.methodButtonTextActive
+                    ]}>
+                      {method.replace('_', ' ').toUpperCase()}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Input
+                label="Reference Number"
+                value={editPaymentForm.reference}
+                onChangeText={(text) => setEditPaymentForm({ ...editPaymentForm, reference: text })}
+                placeholder="Optional"
+              />
+              <Input
+                label="Notes"
+                value={editPaymentForm.notes}
+                onChangeText={(text) => setEditPaymentForm({ ...editPaymentForm, notes: text })}
+                placeholder="Optional"
+              />
+              
+              <View style={styles.reasonSection}>
+                <Text style={styles.reasonLabel}>Reason for Edit *</Text>
+                <TextInput
+                  style={styles.reasonInput}
+                  value={editPaymentForm.reason}
+                  onChangeText={(text) => setEditPaymentForm({ ...editPaymentForm, reason: text })}
+                  placeholder="Enter reason for this edit (required for audit)"
+                  multiline
+                  numberOfLines={3}
+                  placeholderTextColor="#94a3b8"
+                />
+              </View>
+              
+              <Button
+                title={isSubmitting ? "Saving..." : "Save Changes"}
+                onPress={handleEditPayment}
+                loading={isSubmitting}
+                disabled={isSubmitting || !editPaymentForm.reason.trim()}
+                style={{ marginTop: 16 }}
+              />
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* EDIT EXPENSE MODAL */}
+      <Modal
+        visible={showEditExpenseModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowEditExpenseModal(false)}
+      >
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
+          <ScrollView>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Edit Expense</Text>
+                <TouchableOpacity onPress={() => setShowEditExpenseModal(false)}>
+                  <Ionicons name="close" size={24} color="#64748b" />
+                </TouchableOpacity>
+              </View>
+              
+              {selectedExpense && (
+                <View style={styles.selectedUnitInfo}>
+                  <Text style={styles.selectedUnitName}>{selectedExpense.vendor_name}</Text>
+                  <Text style={styles.selectedUnitBalance}>
+                    Original: {formatCurrency(selectedExpense.amount)}
+                  </Text>
+                </View>
+              )}
+              
+              <View style={styles.auditWarning}>
+                <Ionicons name="shield-checkmark" size={20} color="#d97706" />
+                <Text style={styles.auditWarningText}>
+                  All edits are logged in the audit trail. A reason is required.
+                </Text>
+              </View>
+              
+              <Input
+                label="Vendor Name"
+                value={editExpenseForm.vendor_name}
+                onChangeText={(text) => setEditExpenseForm({ ...editExpenseForm, vendor_name: text })}
+                placeholder="Enter vendor name"
+              />
+              <Input
+                label="Amount (₹)"
+                value={editExpenseForm.amount}
+                onChangeText={(text) => setEditExpenseForm({ ...editExpenseForm, amount: text })}
+                placeholder="Enter new amount"
+                keyboardType="decimal-pad"
+              />
+              <Input
+                label="Payment Date"
+                value={editExpenseForm.payment_date}
+                onChangeText={(text) => setEditExpenseForm({ ...editExpenseForm, payment_date: text })}
+                placeholder="YYYY-MM-DD"
+              />
+              <Input
+                label="Description"
+                value={editExpenseForm.description}
+                onChangeText={(text) => setEditExpenseForm({ ...editExpenseForm, description: text })}
+                placeholder="Enter description"
+              />
+              <Text style={styles.fieldLabel}>Payment Method</Text>
+              <View style={styles.methodButtons}>
+                {['upi', 'bank_transfer', 'cash', 'cheque'].map(method => (
+                  <TouchableOpacity
+                    key={method}
+                    style={[
+                      styles.methodButton,
+                      editExpenseForm.method === method && styles.methodButtonActive
+                    ]}
+                    onPress={() => setEditExpenseForm({ ...editExpenseForm, method })}
+                  >
+                    <Text style={[
+                      styles.methodButtonText,
+                      editExpenseForm.method === method && styles.methodButtonTextActive
+                    ]}>
+                      {method.replace('_', ' ').toUpperCase()}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Input
+                label="Invoice Number"
+                value={editExpenseForm.invoice_number}
+                onChangeText={(text) => setEditExpenseForm({ ...editExpenseForm, invoice_number: text })}
+                placeholder="Optional"
+              />
+              
+              <View style={styles.reasonSection}>
+                <Text style={styles.reasonLabel}>Reason for Edit *</Text>
+                <TextInput
+                  style={styles.reasonInput}
+                  value={editExpenseForm.reason}
+                  onChangeText={(text) => setEditExpenseForm({ ...editExpenseForm, reason: text })}
+                  placeholder="Enter reason for this edit (required for audit)"
+                  multiline
+                  numberOfLines={3}
+                  placeholderTextColor="#94a3b8"
+                />
+              </View>
+              
+              <Button
+                title={isSubmitting ? "Saving..." : "Save Changes"}
+                onPress={handleEditExpense}
+                loading={isSubmitting}
+                disabled={isSubmitting || !editExpenseForm.reason.trim()}
+                style={{ marginTop: 16 }}
+              />
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
