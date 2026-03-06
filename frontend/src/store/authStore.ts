@@ -120,4 +120,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   resetLoading: () => {
     set({ isLoading: false });
   },
+
+  updateUser: async (userData: Partial<User>) => {
+    const { user } = get();
+    if (user) {
+      const updatedUser = { ...user, ...userData };
+      await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
+      set({ user: updatedUser });
+    }
+  },
 }));
