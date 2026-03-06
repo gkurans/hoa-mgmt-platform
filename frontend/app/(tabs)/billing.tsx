@@ -186,6 +186,27 @@ export default function BillingScreen() {
     period: '',
   });
 
+  // Edit form states (with mandatory reason)
+  const [editPaymentForm, setEditPaymentForm] = useState({
+    amount: '',
+    payment_date: '',
+    method: '',
+    reference: '',
+    notes: '',
+    reason: '', // Required for audit
+  });
+
+  const [editExpenseForm, setEditExpenseForm] = useState({
+    vendor_name: '',
+    amount: '',
+    payment_date: '',
+    description: '',
+    method: '',
+    reference: '',
+    invoice_number: '',
+    reason: '', // Required for audit
+  });
+
   const showMessage = (title: string, message: string, isError: boolean = false) => {
     if (Platform.OS === 'web') {
       setResultMessage({ title, message, isError });
