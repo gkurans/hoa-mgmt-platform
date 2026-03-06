@@ -130,6 +130,47 @@ export default function DashboardScreen() {
               </Text>
             </Card>
 
+            {/* Financial Metrics Section */}
+            <Text style={styles.financialSectionTitle}>HOA Financial Overview</Text>
+            <View style={styles.financialGrid}>
+              <Card style={styles.financialCard}>
+                <View style={[styles.financialIcon, { backgroundColor: '#dcfce7' }]}>
+                  <Ionicons name="shield-checkmark" size={20} color="#16a34a" />
+                </View>
+                <Text style={styles.financialValue}>
+                  {formatCurrency(adminData.reserve_balance || 0)}
+                </Text>
+                <Text style={styles.financialLabel}>Reserve Balance</Text>
+              </Card>
+              <Card style={styles.financialCard}>
+                <View style={[styles.financialIcon, { backgroundColor: '#dbeafe' }]}>
+                  <Ionicons name="trending-up" size={20} color="#2563eb" />
+                </View>
+                <Text style={styles.financialValue}>
+                  {formatCurrency(adminData.total_collected || 0)}
+                </Text>
+                <Text style={styles.financialLabel}>Total Collected</Text>
+              </Card>
+              <Card style={styles.financialCard}>
+                <View style={[styles.financialIcon, { backgroundColor: '#fef3c7' }]}>
+                  <Ionicons name="card" size={20} color="#d97706" />
+                </View>
+                <Text style={styles.financialValue}>
+                  {formatCurrency(adminData.payments_this_year || 0)}
+                </Text>
+                <Text style={styles.financialLabel}>Payments This Year</Text>
+              </Card>
+              <Card style={styles.financialCard}>
+                <View style={[styles.financialIcon, { backgroundColor: '#fecaca' }]}>
+                  <Ionicons name="cash" size={20} color="#dc2626" />
+                </View>
+                <Text style={styles.financialValue}>
+                  {formatCurrency(adminData.expenses_this_year || 0)}
+                </Text>
+                <Text style={styles.financialLabel}>Vendor Payments</Text>
+              </Card>
+            </View>
+
             <View style={styles.unitTypes}>
               <Card style={styles.unitTypeCard}>
                 <Ionicons name="home" size={24} color="#2563eb" />
