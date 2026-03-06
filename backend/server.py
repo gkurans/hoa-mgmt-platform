@@ -1640,6 +1640,148 @@ async def seed_data():
     
     return {"message": "Seeded 8 units, 6 categories, and admin user successfully"}
 
+# ============== AUDIT LOG ROUTES ==============
+
+class AuditLogResponse(BaseModel):
+    id: str
+    entity_type: str
+    entity_id: str
+    action: str
+    old_value: Optional[dict] = None
+    new_value: Optional[dict] = None
+    performed_by: str
+    performed_by_name: Optional[str] = None
+    timestamp: datetime
+    description: Optional[str] = None
+
+@api_router.get("/audit-logs")
+async def get_audit_logs(
+    entity_type: Optional[str] = None,
+    action: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    unit_id: Optional[str] = None,
+    limit: int = 100,
+    user: dict = Depends(get_current_user)
+):
+    """Get audit logs with optional filters. Accessible to all authenticated users."""
+    query = {}
+    
+    if entity_type:
+        query["entity_type"] = entity_type
+    
+    if action:
+        query["action"] = action
+    
+    if start_date:
+        try:
+            start = datetime.fromisoformat(start_date)
+            query["timestamp"] = {"$gte": start}
+        except:
+            pass
+    
+    if end_date:
+        try:
+            end = datetime.fromisoformat(end_date)
+            if "timestamp" in query:
+                query["timestamp"]["$lte"] = end
+            else:
+                query["timestamp"] = {"$lte": end}
+        except:
+            pass
+    
+    if unit_id:
+        # Filter by unit in entity_id or new_value.unit_id
+        query["$or"] = [
+            {"entity_id": unit_id},
+            {"new_value.unit_id": unit_id}
+        ]
+    
+    # Get logs with user info
+    logs = await db.audit_logs.find(query).sort("timestamp", -1).limit(limit).to_list(limit)
+    
+    # Get unique user IDs to fetch names
+    user_ids = set()
+    for log in logs:
+        if log.get("performed_by") and log["performed_by"] != "system":
+            try:
+                user_ids.add(ObjectId(log["performed_by"]))
+            except:
+                pass
+    
+    # Fetch user names
+    user_map = {}
+    if user_ids:
+        users = await db.users.find({"_id": {"$in": list(user_ids)}}).to_list(None)
+        user_map = {str(u["_id"]): u.get("name", "Unknown") for u in users}
+    
+    # Generate human-readable descriptions
+    def get_description(log):
+        action = log.get("action", "")
+        entity = log.get("entity_type", "")
+        new_val = log.get("new_value", {}) or {}
+        
+        if action == "create":
+            if entity == "payment":
+                return f"Payment of ₹{new_val.get('amount', 0):,.2f} recorded"
+            elif entity == "charge":
+                return f"Charge of ₹{new_val.get('amount', 0):,.2f} created"
+            elif entity == "expense":
+                return f"Expense of ₹{new_val.get('amount', 0):,.2f} to {new_val.get('vendor_name', 'vendor')}"
+            elif entity == "adjustment":
+                adj_type = new_val.get('adjustment_type', 'adjustment')
+                return f"{adj_type.title()} adjustment of ₹{new_val.get('amount', 0):,.2f}"
+            elif entity == "bill_input":
+                return f"Annual setup created for year {new_val.get('year', '')}"
+            elif entity == "unit":
+                return f"Unit {new_val.get('display_name', '')} created"
+            elif entity == "owner":
+                return f"Owner {new_val.get('name', '')} added"
+        elif action == "approve":
+            return f"Annual setup approved for posting"
+        elif action == "post":
+            charges = new_val.get('charges_created', 0)
+            return f"{charges} charges posted to unit ledgers"
+        elif action == "update":
+            return f"{entity.title()} updated"
+        elif action == "delete":
+            return f"{entity.title()} deleted"
+        elif action == "assign_owner":
+            return f"Owner assigned to unit"
+        elif action == "execute" and entity == "system":
+            return f"Year-end carry forward executed"
+        
+        return f"{action.title()} on {entity}"
+    
+    result = []
+    for log in logs:
+        result.append(AuditLogResponse(
+            id=str(log["_id"]),
+            entity_type=log.get("entity_type", ""),
+            entity_id=log.get("entity_id", ""),
+            action=log.get("action", ""),
+            old_value=log.get("old_value"),
+            new_value=log.get("new_value"),
+            performed_by=log.get("performed_by", "system"),
+            performed_by_name=user_map.get(log.get("performed_by"), "System"),
+            timestamp=log.get("timestamp", datetime.utcnow()),
+            description=get_description(log)
+        ))
+    
+    return result
+
+@api_router.get("/audit-logs/entity-types")
+async def get_audit_entity_types(user: dict = Depends(get_current_user)):
+    """Get list of unique entity types in audit logs"""
+    types = await db.audit_logs.distinct("entity_type")
+    return types
+
+@api_router.get("/audit-logs/actions")
+async def get_audit_actions(user: dict = Depends(get_current_user)):
+    """Get list of unique actions in audit logs"""
+    actions = await db.audit_logs.distinct("action")
+    return actions
+
 # ============== HEALTH CHECK ==============
 
 @api_router.get("/health")
