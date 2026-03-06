@@ -73,6 +73,10 @@ export const carryForward = (year: number) => api.post(`/reports/carry-forward/$
 export const getAdminDashboard = () => api.get('/dashboard/admin');
 export const getOwnerDashboard = () => api.get('/dashboard/owner');
 
+// Profile
+export const updateProfile = (data: { name?: string; phone?: string; email?: string }) => 
+  api.put('/auth/profile', data);
+
 // Audit Logs
 export const getAuditLogs = (params?: {
   entity_type?: string;
