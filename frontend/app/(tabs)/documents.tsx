@@ -120,6 +120,7 @@ export default function DocumentsScreen() {
 
   const fetchData = useCallback(async () => {
     try {
+      setRefreshing(true);
       const [foldersRes, filesRes] = await Promise.all([
         getFolders(currentFolderId || undefined),
         getFiles(currentFolderId || undefined),
