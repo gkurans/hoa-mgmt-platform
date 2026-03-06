@@ -1477,13 +1477,29 @@ async def get_admin_dashboard(user: dict = Depends(require_admin)):
 @api_router.get("/dashboard/owner", response_model=OwnerDashboard)
 async def get_owner_dashboard(user: dict = Depends(get_current_user)):
     unit_ids = user.get("unit_ids", [])
+    
+    # Return empty dashboard if no units assigned
     if not unit_ids:
-        raise HTTPException(status_code=404, detail="No unit assigned to this owner")
+        return OwnerDashboard(
+            unit_id="",
+            unit_display="No unit assigned",
+            current_balance=0.0,
+            last_payment_date=None,
+            last_payment_amount=None,
+            recent_charges=[]
+        )
     
     # Get first unit (primary)
     unit = await db.units.find_one({"_id": ObjectId(unit_ids[0])})
     if not unit:
-        raise HTTPException(status_code=404, detail="Unit not found")
+        return OwnerDashboard(
+            unit_id="",
+            unit_display="No unit assigned",
+            current_balance=0.0,
+            last_payment_date=None,
+            last_payment_amount=None,
+            recent_charges=[]
+        )
     
     # Get last payment
     last_payment = await db.payments.find_one(
