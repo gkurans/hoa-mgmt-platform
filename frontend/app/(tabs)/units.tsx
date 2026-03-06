@@ -41,6 +41,8 @@ interface Owner {
 }
 
 export default function UnitsScreen() {
+  const { user, isAdmin } = useAuthStore();
+  const isAdminUser = isAdmin;
   const [units, setUnits] = useState<Unit[]>([]);
   const [owners, setOwners] = useState<Owner[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,6 +53,18 @@ export default function UnitsScreen() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showOwnerModal, setShowOwnerModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'units' | 'owners'>('units');
+  
+  // Check if user owns a specific unit
+  const userOwnsUnit = (unit: Unit) => {
+    if (!user) return false;
+    return user.unit_ids?.includes(unit.id);
+  };
+
+  // Check if current user is the owner being viewed
+  const isCurrentUserOwner = (owner: Owner) => {
+    if (!user) return false;
+    return owner.email === user.email;
+  };
   
   const [newUnit, setNewUnit] = useState({
     unit_id: '',
