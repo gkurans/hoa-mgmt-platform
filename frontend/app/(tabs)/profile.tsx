@@ -21,7 +21,7 @@ import Card from '../../src/components/Card';
 import Button from '../../src/components/Button';
 
 export default function ProfileScreen() {
-  const { user, logout, loadStoredAuth, isLoading } = useAuthStore();
+  const { user, logout, loadStoredAuth, isLoading, updateUser } = useAuthStore();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editName, setEditName] = useState('');
