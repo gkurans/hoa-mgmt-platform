@@ -845,6 +845,13 @@ export default function BillingScreen() {
                   {expense.description && (
                     <Text style={styles.expenseDescription}>{expense.description}</Text>
                   )}
+                  <TouchableOpacity
+                    style={styles.editButton}
+                    onPress={() => openEditExpenseModal(expense)}
+                  >
+                    <Ionicons name="pencil" size={16} color="#2563eb" />
+                    <Text style={styles.editButtonText}>Edit</Text>
+                  </TouchableOpacity>
                 </Card>
               ))
             )}
