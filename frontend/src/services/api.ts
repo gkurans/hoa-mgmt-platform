@@ -73,6 +73,18 @@ export const carryForward = (year: number) => api.post(`/reports/carry-forward/$
 export const getAdminDashboard = () => api.get('/dashboard/admin');
 export const getOwnerDashboard = () => api.get('/dashboard/owner');
 
+// Audit Logs
+export const getAuditLogs = (params?: {
+  entity_type?: string;
+  action?: string;
+  start_date?: string;
+  end_date?: string;
+  unit_id?: string;
+  limit?: number;
+}) => api.get('/audit-logs', { params });
+export const getAuditEntityTypes = () => api.get('/audit-logs/entity-types');
+export const getAuditActions = () => api.get('/audit-logs/actions');
+
 // Ledger
 export const getUnitLedger = (unitId: string, year?: number) =>
   api.get(`/ledger/${unitId}`, { params: year ? { year } : {} });
