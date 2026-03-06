@@ -356,17 +356,36 @@ export default function DocumentsScreen() {
   };
 
   const handleDownloadFile = async (file: Document) => {
-    const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
-    const downloadUrl = `${API_URL}/api/documents/files/${file.id}/download`;
-    
     try {
       if (Platform.OS === 'web') {
-        window.open(downloadUrl, '_blank');
+        // For web: fetch with auth token and trigger download
+        const { downloadFile } = await import('../../src/services/api');
+        const response = await downloadFile(file.id);
+        
+        // Create blob URL and trigger download
+        const blob = new Blob([response.data], { type: file.mime_type });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = file.original_filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
       } else {
+        // For native: use Linking (may need different approach for auth)
+        const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+        const downloadUrl = `${API_URL}/api/documents/files/${file.id}/download`;
         await Linking.openURL(downloadUrl);
       }
-    } catch (error) {
-      Alert.alert('Error', 'Could not download file');
+    } catch (error: any) {
+      console.error('Download error:', error);
+      const errorMessage = error.response?.data?.detail || 'Could not download file';
+      if (Platform.OS === 'web') {
+        alert(errorMessage);
+      } else {
+        Alert.alert('Error', errorMessage);
+      }
     }
   };
 
