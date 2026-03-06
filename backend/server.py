@@ -576,7 +576,8 @@ async def assign_owner(unit_id: str, assignment: OwnerAssignment, user: dict = D
 # ============== OWNER ROUTES ==============
 
 @api_router.get("/owners", response_model=List[UserResponse])
-async def get_owners(user: dict = Depends(require_admin)):
+async def get_owners(user: dict = Depends(get_current_user)):
+    """Get all owners - accessible to all authenticated users for read-only viewing"""
     users = await db.users.find({"role": {"$in": ["owner", "admin", "treasurer"]}}).to_list(100)
     return [
         UserResponse(
