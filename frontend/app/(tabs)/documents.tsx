@@ -340,7 +340,7 @@ export default function DocumentsScreen() {
     setShowFileDetailModal(true);
   };
 
-  if (loading && !refreshing) {
+  if (loading && folders.length === 0 && files.length === 0 && !refreshing) {
     return <LoadingSpinner message="Loading documents..." />;
   }
 
