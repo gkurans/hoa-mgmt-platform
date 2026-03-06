@@ -21,6 +21,11 @@ interface AdminData {
   units_overdue: number;
   recent_payments: any[];
   allocation_status: string;
+  // Financial Metrics
+  reserve_balance: number;
+  total_collected: number;
+  payments_this_year: number;
+  expenses_this_year: number;
 }
 
 interface OwnerData {
@@ -30,6 +35,11 @@ interface OwnerData {
   last_payment_date: string | null;
   last_payment_amount: number | null;
   recent_charges: any[];
+  // Financial Metrics (for transparency)
+  reserve_balance: number;
+  total_collected: number;
+  payments_this_year: number;
+  expenses_this_year: number;
 }
 
 export default function DashboardScreen() {
