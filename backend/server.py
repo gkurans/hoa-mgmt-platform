@@ -2080,6 +2080,513 @@ async def get_audit_actions(user: dict = Depends(get_current_user)):
     actions = await db.audit_logs.distinct("action")
     return actions
 
+# ============== DOCUMENT MANAGEMENT ==============
+
+# Allowed file types and max size
+ALLOWED_FILE_TYPES = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.jpg', '.jpeg', '.png', '.csv', '.txt']
+MAX_FILE_SIZE = 25 * 1024 * 1024  # 25MB
+
+class FolderCreate(BaseModel):
+    name: str
+    parent_id: Optional[str] = None
+    description: Optional[str] = None
+
+class FolderUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+
+class FolderResponse(BaseModel):
+    id: str
+    name: str
+    parent_id: Optional[str] = None
+    path: str
+    description: Optional[str] = None
+    created_by: str
+    created_at: datetime
+    children_count: int = 0
+    files_count: int = 0
+
+class DocumentResponse(BaseModel):
+    id: str
+    filename: str
+    original_filename: str
+    folder_id: str
+    folder_path: str
+    file_size: int
+    file_type: str
+    mime_type: str
+    description: Optional[str] = None
+    uploaded_by: str
+    uploaded_by_role: str
+    uploaded_at: datetime
+    version: int = 1
+    previous_versions: List[dict] = []
+
+class DocumentSearchResult(BaseModel):
+    documents: List[DocumentResponse]
+    folders: List[FolderResponse]
+
+# Initialize default folders
+DEFAULT_FOLDERS = [
+    {"name": "HOA Legal & Governance", "path": "/HOA Legal & Governance"},
+    {"name": "Financial Records", "path": "/Financial Records", "children": [
+        {"name": "2024", "path": "/Financial Records/2024"},
+        {"name": "2025", "path": "/Financial Records/2025"},
+        {"name": "2026", "path": "/Financial Records/2026"},
+    ]},
+    {"name": "Utility Bills", "path": "/Utility Bills", "children": [
+        {"name": "Water Bills", "path": "/Utility Bills/Water Bills"},
+        {"name": "Electricity Bills", "path": "/Utility Bills/Electricity Bills"},
+    ]},
+    {"name": "Meeting Minutes", "path": "/Meeting Minutes"},
+    {"name": "Maintenance & Vendor Records", "path": "/Maintenance & Vendor Records"},
+    {"name": "HOA Communications", "path": "/HOA Communications"},
+    {"name": "Disputes & Violations", "path": "/Disputes & Violations"},
+]
+
+async def ensure_default_folders():
+    """Create default folder structure if not exists"""
+    root_count = await db.folders.count_documents({"parent_id": None})
+    if root_count == 0:
+        for folder_data in DEFAULT_FOLDERS:
+            await create_folder_recursive(folder_data, None)
+
+async def create_folder_recursive(folder_data: dict, parent_id: Optional[str]):
+    """Recursively create folders"""
+    folder_doc = {
+        "name": folder_data["name"],
+        "parent_id": parent_id,
+        "path": folder_data["path"],
+        "description": None,
+        "created_by": "system",
+        "created_at": datetime.utcnow()
+    }
+    result = await db.folders.insert_one(folder_doc)
+    folder_id = str(result.inserted_id)
+    
+    # Create children
+    if "children" in folder_data:
+        for child in folder_data["children"]:
+            await create_folder_recursive(child, folder_id)
+
+async def get_folder_path(folder_id: str) -> str:
+    """Get full path of a folder"""
+    folder = await db.folders.find_one({"_id": ObjectId(folder_id)})
+    if folder:
+        return folder.get("path", "/")
+    return "/"
+
+@api_router.get("/documents/folders", response_model=List[FolderResponse])
+async def get_folders(parent_id: Optional[str] = None, user: dict = Depends(get_current_user)):
+    """Get folders - available to all authenticated users"""
+    await ensure_default_folders()
+    
+    query = {"parent_id": parent_id}
+    folders = await db.folders.find(query).sort("name", 1).to_list(100)
+    
+    result = []
+    for f in folders:
+        folder_id = str(f["_id"])
+        children_count = await db.folders.count_documents({"parent_id": folder_id})
+        files_count = await db.documents.count_documents({"folder_id": folder_id})
+        
+        result.append(FolderResponse(
+            id=folder_id,
+            name=f["name"],
+            parent_id=f.get("parent_id"),
+            path=f.get("path", "/"),
+            description=f.get("description"),
+            created_by=f.get("created_by", "system"),
+            created_at=f.get("created_at", datetime.utcnow()),
+            children_count=children_count,
+            files_count=files_count
+        ))
+    
+    return result
+
+@api_router.get("/documents/folders/{folder_id}", response_model=FolderResponse)
+async def get_folder(folder_id: str, user: dict = Depends(get_current_user)):
+    """Get a specific folder"""
+    folder = await db.folders.find_one({"_id": ObjectId(folder_id)})
+    if not folder:
+        raise HTTPException(status_code=404, detail="Folder not found")
+    
+    children_count = await db.folders.count_documents({"parent_id": folder_id})
+    files_count = await db.documents.count_documents({"folder_id": folder_id})
+    
+    return FolderResponse(
+        id=str(folder["_id"]),
+        name=folder["name"],
+        parent_id=folder.get("parent_id"),
+        path=folder.get("path", "/"),
+        description=folder.get("description"),
+        created_by=folder.get("created_by", "system"),
+        created_at=folder.get("created_at", datetime.utcnow()),
+        children_count=children_count,
+        files_count=files_count
+    )
+
+@api_router.post("/documents/folders", response_model=FolderResponse)
+async def create_folder(folder_data: FolderCreate, user: dict = Depends(require_admin)):
+    """Create a new folder - Admin/Treasurer only"""
+    # Determine path
+    if folder_data.parent_id:
+        parent = await db.folders.find_one({"_id": ObjectId(folder_data.parent_id)})
+        if not parent:
+            raise HTTPException(status_code=404, detail="Parent folder not found")
+        path = f"{parent['path']}/{folder_data.name}"
+    else:
+        path = f"/{folder_data.name}"
+    
+    # Check if folder already exists at this path
+    existing = await db.folders.find_one({"path": path})
+    if existing:
+        raise HTTPException(status_code=400, detail="Folder already exists at this path")
+    
+    folder_doc = {
+        "name": folder_data.name,
+        "parent_id": folder_data.parent_id,
+        "path": path,
+        "description": folder_data.description,
+        "created_by": user["name"],
+        "created_at": datetime.utcnow()
+    }
+    
+    result = await db.folders.insert_one(folder_doc)
+    
+    # Log action
+    await log_audit("folder", str(result.inserted_id), "create", None, {"name": folder_data.name, "path": path}, str(user["_id"]))
+    
+    return FolderResponse(
+        id=str(result.inserted_id),
+        name=folder_data.name,
+        parent_id=folder_data.parent_id,
+        path=path,
+        description=folder_data.description,
+        created_by=user["name"],
+        created_at=folder_doc["created_at"],
+        children_count=0,
+        files_count=0
+    )
+
+@api_router.put("/documents/folders/{folder_id}", response_model=FolderResponse)
+async def update_folder(folder_id: str, folder_data: FolderUpdate, user: dict = Depends(require_admin)):
+    """Update a folder - Admin/Treasurer only"""
+    folder = await db.folders.find_one({"_id": ObjectId(folder_id)})
+    if not folder:
+        raise HTTPException(status_code=404, detail="Folder not found")
+    
+    update_dict = {}
+    old_values = {}
+    
+    if folder_data.name and folder_data.name != folder["name"]:
+        old_values["name"] = folder["name"]
+        update_dict["name"] = folder_data.name
+        # Update path
+        old_path = folder["path"]
+        if folder["parent_id"]:
+            parent = await db.folders.find_one({"_id": ObjectId(folder["parent_id"])})
+            new_path = f"{parent['path']}/{folder_data.name}"
+        else:
+            new_path = f"/{folder_data.name}"
+        update_dict["path"] = new_path
+        
+        # Update all child folder paths
+        children = await db.folders.find({"path": {"$regex": f"^{old_path}/"}}).to_list(1000)
+        for child in children:
+            child_new_path = child["path"].replace(old_path, new_path, 1)
+            await db.folders.update_one(
+                {"_id": child["_id"]},
+                {"$set": {"path": child_new_path}}
+            )
+    
+    if folder_data.description is not None:
+        old_values["description"] = folder.get("description")
+        update_dict["description"] = folder_data.description
+    
+    if update_dict:
+        await db.folders.update_one(
+            {"_id": ObjectId(folder_id)},
+            {"$set": update_dict}
+        )
+        await log_audit("folder", folder_id, "update", old_values, update_dict, str(user["_id"]))
+    
+    updated = await db.folders.find_one({"_id": ObjectId(folder_id)})
+    children_count = await db.folders.count_documents({"parent_id": folder_id})
+    files_count = await db.documents.count_documents({"folder_id": folder_id})
+    
+    return FolderResponse(
+        id=folder_id,
+        name=updated["name"],
+        parent_id=updated.get("parent_id"),
+        path=updated.get("path", "/"),
+        description=updated.get("description"),
+        created_by=updated.get("created_by", "system"),
+        created_at=updated.get("created_at", datetime.utcnow()),
+        children_count=children_count,
+        files_count=files_count
+    )
+
+@api_router.delete("/documents/folders/{folder_id}")
+async def delete_folder(folder_id: str, user: dict = Depends(require_admin)):
+    """Delete a folder - Admin/Treasurer only. Only empty folders can be deleted."""
+    folder = await db.folders.find_one({"_id": ObjectId(folder_id)})
+    if not folder:
+        raise HTTPException(status_code=404, detail="Folder not found")
+    
+    # Check if folder has children or files
+    children_count = await db.folders.count_documents({"parent_id": folder_id})
+    files_count = await db.documents.count_documents({"folder_id": folder_id})
+    
+    if children_count > 0 or files_count > 0:
+        raise HTTPException(status_code=400, detail="Cannot delete folder with contents. Remove all files and subfolders first.")
+    
+    await db.folders.delete_one({"_id": ObjectId(folder_id)})
+    await log_audit("folder", folder_id, "delete", {"name": folder["name"], "path": folder["path"]}, None, str(user["_id"]))
+    
+    return {"message": "Folder deleted successfully"}
+
+@api_router.get("/documents/files", response_model=List[DocumentResponse])
+async def get_files(folder_id: Optional[str] = None, user: dict = Depends(get_current_user)):
+    """Get files in a folder - available to all authenticated users"""
+    query = {}
+    if folder_id:
+        query["folder_id"] = folder_id
+    
+    documents = await db.documents.find(query).sort("uploaded_at", -1).to_list(1000)
+    
+    result = []
+    for doc in documents:
+        folder_path = await get_folder_path(doc["folder_id"]) if doc.get("folder_id") else "/"
+        result.append(DocumentResponse(
+            id=str(doc["_id"]),
+            filename=doc["filename"],
+            original_filename=doc["original_filename"],
+            folder_id=doc["folder_id"],
+            folder_path=folder_path,
+            file_size=doc["file_size"],
+            file_type=doc["file_type"],
+            mime_type=doc.get("mime_type", "application/octet-stream"),
+            description=doc.get("description"),
+            uploaded_by=doc["uploaded_by"],
+            uploaded_by_role=doc.get("uploaded_by_role", "admin"),
+            uploaded_at=doc["uploaded_at"],
+            version=doc.get("version", 1),
+            previous_versions=doc.get("previous_versions", [])
+        ))
+    
+    return result
+
+@api_router.post("/documents/files/upload")
+async def upload_file(
+    file: UploadFile = File(...),
+    folder_id: str = Form(...),
+    description: str = Form(None),
+    user: dict = Depends(require_admin)
+):
+    """Upload a file - Admin/Treasurer only"""
+    # Validate file type
+    file_ext = Path(file.filename).suffix.lower()
+    if file_ext not in ALLOWED_FILE_TYPES:
+        raise HTTPException(status_code=400, detail=f"File type {file_ext} not allowed. Allowed types: {', '.join(ALLOWED_FILE_TYPES)}")
+    
+    # Check file size
+    content = await file.read()
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail=f"File too large. Maximum size is 25MB.")
+    
+    # Verify folder exists
+    folder = await db.folders.find_one({"_id": ObjectId(folder_id)})
+    if not folder:
+        raise HTTPException(status_code=404, detail="Folder not found")
+    
+    # Check for existing file with same name (for versioning)
+    existing = await db.documents.find_one({
+        "folder_id": folder_id,
+        "original_filename": file.filename
+    })
+    
+    # Generate unique filename
+    unique_id = str(uuid.uuid4())
+    stored_filename = f"{unique_id}{file_ext}"
+    file_path = UPLOADS_DIR / stored_filename
+    
+    # Save file
+    with open(file_path, "wb") as f:
+        f.write(content)
+    
+    mime_type, _ = mimetypes.guess_type(file.filename)
+    
+    if existing:
+        # Version control - keep old version info
+        old_versions = existing.get("previous_versions", [])
+        old_versions.append({
+            "filename": existing["filename"],
+            "file_size": existing["file_size"],
+            "uploaded_by": existing["uploaded_by"],
+            "uploaded_at": existing["uploaded_at"].isoformat(),
+            "version": existing.get("version", 1)
+        })
+        
+        # Update document
+        new_version = existing.get("version", 1) + 1
+        await db.documents.update_one(
+            {"_id": existing["_id"]},
+            {"$set": {
+                "filename": stored_filename,
+                "file_size": len(content),
+                "mime_type": mime_type or "application/octet-stream",
+                "description": description or existing.get("description"),
+                "uploaded_by": user["name"],
+                "uploaded_by_role": user["role"],
+                "uploaded_at": datetime.utcnow(),
+                "version": new_version,
+                "previous_versions": old_versions
+            }}
+        )
+        
+        await log_audit("document", str(existing["_id"]), "replace", 
+                       {"filename": existing["original_filename"], "version": existing.get("version", 1)},
+                       {"filename": file.filename, "version": new_version},
+                       str(user["_id"]))
+        
+        return {"message": "File replaced successfully", "id": str(existing["_id"]), "version": new_version}
+    else:
+        # Create new document
+        doc = {
+            "filename": stored_filename,
+            "original_filename": file.filename,
+            "folder_id": folder_id,
+            "file_size": len(content),
+            "file_type": file_ext,
+            "mime_type": mime_type or "application/octet-stream",
+            "description": description,
+            "uploaded_by": user["name"],
+            "uploaded_by_role": user["role"],
+            "uploaded_at": datetime.utcnow(),
+            "version": 1,
+            "previous_versions": []
+        }
+        
+        result = await db.documents.insert_one(doc)
+        
+        await log_audit("document", str(result.inserted_id), "upload",
+                       None,
+                       {"filename": file.filename, "folder": folder["path"], "size": len(content)},
+                       str(user["_id"]))
+        
+        return {"message": "File uploaded successfully", "id": str(result.inserted_id), "version": 1}
+
+@api_router.get("/documents/files/{document_id}/download")
+async def download_file(document_id: str, user: dict = Depends(get_current_user)):
+    """Download a file - available to all authenticated users"""
+    document = await db.documents.find_one({"_id": ObjectId(document_id)})
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    file_path = UPLOADS_DIR / document["filename"]
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File not found on server")
+    
+    return FileResponse(
+        path=str(file_path),
+        filename=document["original_filename"],
+        media_type=document.get("mime_type", "application/octet-stream")
+    )
+
+@api_router.delete("/documents/files/{document_id}")
+async def delete_file(document_id: str, user: dict = Depends(require_admin)):
+    """Delete a file - Admin/Treasurer only"""
+    document = await db.documents.find_one({"_id": ObjectId(document_id)})
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    # Delete physical file
+    file_path = UPLOADS_DIR / document["filename"]
+    if file_path.exists():
+        file_path.unlink()
+    
+    await db.documents.delete_one({"_id": ObjectId(document_id)})
+    
+    await log_audit("document", document_id, "delete",
+                   {"filename": document["original_filename"], "folder_id": document["folder_id"]},
+                   None,
+                   str(user["_id"]))
+    
+    return {"message": "Document deleted successfully"}
+
+@api_router.get("/documents/search", response_model=DocumentSearchResult)
+async def search_documents(q: str, user: dict = Depends(get_current_user)):
+    """Search documents and folders by name/keyword"""
+    if len(q) < 2:
+        raise HTTPException(status_code=400, detail="Search query must be at least 2 characters")
+    
+    # Search folders
+    folder_query = {"name": {"$regex": q, "$options": "i"}}
+    folders = await db.folders.find(folder_query).to_list(50)
+    
+    folder_results = []
+    for f in folders:
+        folder_id = str(f["_id"])
+        children_count = await db.folders.count_documents({"parent_id": folder_id})
+        files_count = await db.documents.count_documents({"folder_id": folder_id})
+        folder_results.append(FolderResponse(
+            id=folder_id,
+            name=f["name"],
+            parent_id=f.get("parent_id"),
+            path=f.get("path", "/"),
+            description=f.get("description"),
+            created_by=f.get("created_by", "system"),
+            created_at=f.get("created_at", datetime.utcnow()),
+            children_count=children_count,
+            files_count=files_count
+        ))
+    
+    # Search documents
+    doc_query = {"$or": [
+        {"original_filename": {"$regex": q, "$options": "i"}},
+        {"description": {"$regex": q, "$options": "i"}}
+    ]}
+    documents = await db.documents.find(doc_query).to_list(50)
+    
+    doc_results = []
+    for doc in documents:
+        folder_path = await get_folder_path(doc["folder_id"]) if doc.get("folder_id") else "/"
+        doc_results.append(DocumentResponse(
+            id=str(doc["_id"]),
+            filename=doc["filename"],
+            original_filename=doc["original_filename"],
+            folder_id=doc["folder_id"],
+            folder_path=folder_path,
+            file_size=doc["file_size"],
+            file_type=doc["file_type"],
+            mime_type=doc.get("mime_type", "application/octet-stream"),
+            description=doc.get("description"),
+            uploaded_by=doc["uploaded_by"],
+            uploaded_by_role=doc.get("uploaded_by_role", "admin"),
+            uploaded_at=doc["uploaded_at"],
+            version=doc.get("version", 1),
+            previous_versions=doc.get("previous_versions", [])
+        ))
+    
+    return DocumentSearchResult(documents=doc_results, folders=folder_results)
+
+@api_router.get("/documents/breadcrumb/{folder_id}")
+async def get_breadcrumb(folder_id: str, user: dict = Depends(get_current_user)):
+    """Get breadcrumb path for a folder"""
+    breadcrumb = []
+    current_id = folder_id
+    
+    while current_id:
+        folder = await db.folders.find_one({"_id": ObjectId(current_id)})
+        if folder:
+            breadcrumb.insert(0, {"id": str(folder["_id"]), "name": folder["name"]})
+            current_id = folder.get("parent_id")
+        else:
+            break
+    
+    return breadcrumb
+
 # ============== HEALTH CHECK ==============
 
 @api_router.get("/health")
