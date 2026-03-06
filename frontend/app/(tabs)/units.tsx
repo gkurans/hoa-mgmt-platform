@@ -261,25 +261,30 @@ export default function UnitsScreen() {
                         {unit.primary_owner_name || 'Not assigned'}
                       </Text>
                     </View>
-                    <View style={styles.actionButtons}>
-                      <TouchableOpacity
-                        style={styles.editButton}
-                        onPress={() => openEditModal(unit)}
-                      >
-                        <Ionicons name="pencil" size={16} color="#2563eb" />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.assignButton}
-                        onPress={() => {
-                          setSelectedUnit(unit);
-                          setShowAssignModal(true);
-                        }}
-                      >
-                        <Text style={styles.assignButtonText}>
-                          {unit.primary_owner_name ? 'Change' : 'Assign'}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
+                    {/* Show edit/assign buttons only for admins OR for owners of this unit */}
+                    {(isAdminUser || userOwnsUnit(unit)) && (
+                      <View style={styles.actionButtons}>
+                        <TouchableOpacity
+                          style={styles.editButton}
+                          onPress={() => openEditModal(unit)}
+                        >
+                          <Ionicons name="pencil" size={16} color="#2563eb" />
+                        </TouchableOpacity>
+                        {isAdminUser && (
+                          <TouchableOpacity
+                            style={styles.assignButton}
+                            onPress={() => {
+                              setSelectedUnit(unit);
+                              setShowAssignModal(true);
+                            }}
+                          >
+                            <Text style={styles.assignButtonText}>
+                              {unit.primary_owner_name ? 'Change' : 'Assign'}
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    )}
                   </View>
                 </Card>
               ))}
