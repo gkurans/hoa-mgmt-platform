@@ -22,7 +22,13 @@ import {
   approveSetup,
   postCharges,
   getUnits,
+  getCategories,
+  getCharges,
   createPayment,
+  createExpense,
+  getExpenses,
+  createAdjustment,
+  getAdjustments,
 } from '../../src/services/api';
 import { useAuthStore } from '../../src/store/authStore';
 import Card from '../../src/components/Card';
@@ -49,6 +55,44 @@ interface Unit {
   current_balance: number;
 }
 
+interface Category {
+  id: string;
+  name: string;
+  description: string;
+}
+
+interface Charge {
+  id: string;
+  unit_id: string;
+  category_name: string;
+  amount: number;
+  description: string;
+  status: string;
+  period: string;
+}
+
+interface Expense {
+  id: string;
+  vendor_name: string;
+  category_name: string;
+  amount: number;
+  payment_date: string;
+  description: string;
+  method: string;
+  invoice_number: string;
+}
+
+interface Adjustment {
+  id: string;
+  unit_display: string;
+  category_name: string;
+  amount: number;
+  adjustment_type: string;
+  reason: string;
+  period: string;
+  created_at: string;
+}
+
 export default function BillingScreen() {
   const { user } = useAuthStore();
   const isAdminUser = user?.role === 'admin' || user?.role === 'treasurer';
@@ -56,18 +100,29 @@ export default function BillingScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [setups, setSetups] = useState<AnnualSetup[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [charges, setCharges] = useState<Charge[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
+  
+  const [activeTab, setActiveTab] = useState<'allocation' | 'payments' | 'expenses' | 'adjustments'>('allocation');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Modals
   const [showSetupModal, setShowSetupModal] = useState(false);
   const [showEditSetupModal, setShowEditSetupModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
+  const [showResultModal, setShowResultModal] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
   const [selectedSetup, setSelectedSetup] = useState<AnnualSetup | null>(null);
-  const [activeTab, setActiveTab] = useState<'allocation' | 'payments'>('allocation');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showResultModal, setShowResultModal] = useState(false);
   const [resultMessage, setResultMessage] = useState({ title: '', message: '', isError: false });
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
 
+  // Form states
   const [newSetup, setNewSetup] = useState({
     year: new Date().getFullYear(),
     water_total: '',
@@ -87,6 +142,27 @@ export default function BillingScreen() {
     method: 'upi',
     reference: '',
     notes: '',
+    category_id: '',
+  });
+
+  const [newExpense, setNewExpense] = useState({
+    vendor_name: '',
+    category_id: '',
+    amount: '',
+    payment_date: new Date().toISOString().split('T')[0],
+    description: '',
+    method: 'bank_transfer',
+    reference: '',
+    invoice_number: '',
+  });
+
+  const [newAdjustment, setNewAdjustment] = useState({
+    unit_id: '',
+    category_id: '',
+    amount: '',
+    adjustment_type: 'debit',
+    reason: '',
+    period: '',
   });
 
   const showMessage = (title: string, message: string, isError: boolean = false) => {
@@ -112,19 +188,25 @@ export default function BillingScreen() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [setupsRes, unitsRes] = await Promise.all([
+      const [setupsRes, unitsRes, categoriesRes, expensesRes, adjustmentsRes] = await Promise.all([
         getAnnualSetups(),
         getUnits(),
+        getCategories(),
+        isAdminUser ? getExpenses() : Promise.resolve({ data: [] }),
+        isAdminUser ? getAdjustments() : Promise.resolve({ data: [] }),
       ]);
       setSetups(setupsRes.data);
       setUnits(unitsRes.data);
+      setCategories(categoriesRes.data);
+      setExpenses(expensesRes.data);
+      setAdjustments(adjustmentsRes.data);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [isAdminUser]);
 
   useEffect(() => {
     fetchData();
@@ -135,6 +217,7 @@ export default function BillingScreen() {
     fetchData();
   };
 
+  // Annual Setup handlers
   const handleCreateSetup = async () => {
     if (!newSetup.water_total || !newSetup.electricity_total) {
       showMessage('Error', 'Please enter Water and Electricity totals', true);
@@ -242,9 +325,14 @@ export default function BillingScreen() {
     );
   };
 
+  // Payment handler
   const handleRecordPayment = async () => {
     if (!selectedUnit || !newPayment.amount) {
-      showMessage('Error', 'Please enter payment amount', true);
+      showMessage('Error', 'Please select a unit and enter payment amount', true);
+      return;
+    }
+    if (!newPayment.category_id) {
+      showMessage('Error', 'Please select which category this payment is for', true);
       return;
     }
     setIsSubmitting(true);
@@ -256,9 +344,10 @@ export default function BillingScreen() {
         method: newPayment.method,
         reference: newPayment.reference,
         notes: newPayment.notes,
+        category_id: newPayment.category_id,
       });
       setShowPaymentModal(false);
-      setNewPayment({ amount: '', payment_date: new Date().toISOString().split('T')[0], method: 'upi', reference: '', notes: '' });
+      setNewPayment({ amount: '', payment_date: new Date().toISOString().split('T')[0], method: 'upi', reference: '', notes: '', category_id: '' });
       showMessage('Success', 'Payment recorded successfully!');
       fetchData();
     } catch (error: any) {
@@ -268,8 +357,66 @@ export default function BillingScreen() {
     }
   };
 
+  // Expense handler
+  const handleRecordExpense = async () => {
+    if (!newExpense.vendor_name || !newExpense.amount || !newExpense.category_id) {
+      showMessage('Error', 'Please fill vendor name, category, and amount', true);
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await createExpense({
+        vendor_name: newExpense.vendor_name,
+        category_id: newExpense.category_id,
+        amount: parseFloat(newExpense.amount),
+        payment_date: newExpense.payment_date,
+        description: newExpense.description,
+        method: newExpense.method,
+        reference: newExpense.reference,
+        invoice_number: newExpense.invoice_number,
+      });
+      setShowExpenseModal(false);
+      setNewExpense({ vendor_name: '', category_id: '', amount: '', payment_date: new Date().toISOString().split('T')[0], description: '', method: 'bank_transfer', reference: '', invoice_number: '' });
+      showMessage('Success', 'Expense recorded successfully!');
+      fetchData();
+    } catch (error: any) {
+      showMessage('Error', error.response?.data?.detail || 'Failed to record expense', true);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Adjustment handler
+  const handleCreateAdjustment = async () => {
+    if (!newAdjustment.unit_id || !newAdjustment.amount || !newAdjustment.category_id || !newAdjustment.reason) {
+      showMessage('Error', 'Please fill all required fields', true);
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const amount = parseFloat(newAdjustment.amount);
+      const finalAmount = newAdjustment.adjustment_type === 'credit' ? -Math.abs(amount) : Math.abs(amount);
+      
+      await createAdjustment({
+        unit_id: newAdjustment.unit_id,
+        category_id: newAdjustment.category_id,
+        amount: finalAmount,
+        reason: newAdjustment.reason,
+        period: newAdjustment.period,
+      });
+      setShowAdjustmentModal(false);
+      setNewAdjustment({ unit_id: '', category_id: '', amount: '', adjustment_type: 'debit', reason: '', period: '' });
+      showMessage('Success', `${newAdjustment.adjustment_type === 'credit' ? 'Credit' : 'Debit'} adjustment created successfully!`);
+      fetchData();
+    } catch (error: any) {
+      showMessage('Error', error.response?.data?.detail || 'Failed to create adjustment', true);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const formatCurrency = (amount: number) => {
-    return `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+    return `₹${Math.abs(amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
   };
 
   if (loading) {
@@ -279,28 +426,35 @@ export default function BillingScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Billing</Text>
+        <Text style={styles.title}>Billing & Finance</Text>
       </View>
 
       {isAdminUser && (
-        <View style={styles.tabs}>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'allocation' && styles.tabActive]}
-            onPress={() => setActiveTab('allocation')}
-          >
-            <Text style={[styles.tabText, activeTab === 'allocation' && styles.tabTextActive]}>
-              Annual Allocation
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'payments' && styles.tabActive]}
-            onPress={() => setActiveTab('payments')}
-          >
-            <Text style={[styles.tabText, activeTab === 'payments' && styles.tabTextActive]}>
-              Record Payment
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsContainer}>
+          <View style={styles.tabs}>
+            {[
+              { key: 'allocation', label: 'Allocation', icon: 'calculator' },
+              { key: 'payments', label: 'Payments', icon: 'card' },
+              { key: 'expenses', label: 'Expenses', icon: 'cash' },
+              { key: 'adjustments', label: 'Adjustments', icon: 'swap-horizontal' },
+            ].map((tab) => (
+              <TouchableOpacity
+                key={tab.key}
+                style={[styles.tab, activeTab === tab.key && styles.tabActive]}
+                onPress={() => setActiveTab(tab.key as any)}
+              >
+                <Ionicons 
+                  name={tab.icon as any} 
+                  size={18} 
+                  color={activeTab === tab.key ? '#fff' : '#64748b'} 
+                />
+                <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
+                  {tab.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
       )}
 
       <ScrollView
@@ -310,7 +464,8 @@ export default function BillingScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {activeTab === 'allocation' && isAdminUser ? (
+        {/* ALLOCATION TAB */}
+        {activeTab === 'allocation' && isAdminUser && (
           <View>
             <Button
               title="New Annual Setup"
@@ -318,7 +473,7 @@ export default function BillingScreen() {
               style={styles.newButton}
             />
 
-            <View style={styles.formulaCard}>
+            <Card style={styles.formulaCard}>
               <Text style={styles.formulaTitle}>Unity Towers Allocation Formula</Text>
               <View style={styles.formulaBox}>
                 <Text style={styles.formulaLabel}>Condo Share =</Text>
@@ -328,10 +483,7 @@ export default function BillingScreen() {
                 <Text style={styles.formulaLabel}>Shop Share =</Text>
                 <Text style={styles.formulaText}>0.60E/8</Text>
               </View>
-              <Text style={styles.formulaNote}>
-                W = Water Total, E = Electricity Total
-              </Text>
-            </View>
+            </Card>
 
             <Text style={styles.sectionTitle}>Annual Setups</Text>
             {setups.length === 0 ? (
@@ -429,9 +581,13 @@ export default function BillingScreen() {
               ))
             )}
           </View>
-        ) : (
+        )}
+
+        {/* PAYMENTS TAB */}
+        {activeTab === 'payments' && (
           <View>
-            <Text style={styles.sectionTitle}>Select Unit to Record Payment</Text>
+            <Text style={styles.sectionTitle}>Record Owner Payment</Text>
+            <Text style={styles.sectionSubtitle}>Select a unit to record their payment</Text>
             {units.map(unit => (
               <TouchableOpacity
                 key={unit.id}
@@ -459,16 +615,119 @@ export default function BillingScreen() {
             ))}
           </View>
         )}
+
+        {/* EXPENSES TAB */}
+        {activeTab === 'expenses' && isAdminUser && (
+          <View>
+            <Button
+              title="Record Expense / Vendor Payment"
+              onPress={() => setShowExpenseModal(true)}
+              style={styles.newButton}
+            />
+
+            <Text style={styles.sectionTitle}>Expense History</Text>
+            {expenses.length === 0 ? (
+              <Card style={styles.emptyCard}>
+                <Ionicons name="receipt" size={48} color="#94a3b8" />
+                <Text style={styles.emptyText}>No expenses recorded yet</Text>
+                <Text style={styles.emptySubtext}>Track payments to vendors, utilities, security, etc.</Text>
+              </Card>
+            ) : (
+              expenses.map(expense => (
+                <Card key={expense.id} style={styles.expenseCard}>
+                  <View style={styles.expenseHeader}>
+                    <View style={styles.expenseInfo}>
+                      <Text style={styles.expenseVendor}>{expense.vendor_name}</Text>
+                      <Text style={styles.expenseCategory}>{expense.category_name}</Text>
+                    </View>
+                    <Text style={styles.expenseAmount}>{formatCurrency(expense.amount)}</Text>
+                  </View>
+                  <View style={styles.expenseDetails}>
+                    <View style={styles.expenseDetailRow}>
+                      <Ionicons name="calendar" size={14} color="#64748b" />
+                      <Text style={styles.expenseDetailText}>{expense.payment_date}</Text>
+                    </View>
+                    {expense.invoice_number && (
+                      <View style={styles.expenseDetailRow}>
+                        <Ionicons name="document" size={14} color="#64748b" />
+                        <Text style={styles.expenseDetailText}>Inv: {expense.invoice_number}</Text>
+                      </View>
+                    )}
+                    <View style={styles.expenseDetailRow}>
+                      <Ionicons name="card" size={14} color="#64748b" />
+                      <Text style={styles.expenseDetailText}>{expense.method.replace('_', ' ').toUpperCase()}</Text>
+                    </View>
+                  </View>
+                  {expense.description && (
+                    <Text style={styles.expenseDescription}>{expense.description}</Text>
+                  )}
+                </Card>
+              ))
+            )}
+          </View>
+        )}
+
+        {/* ADJUSTMENTS TAB */}
+        {activeTab === 'adjustments' && isAdminUser && (
+          <View>
+            <Button
+              title="Create Adjustment (Credit/Debit)"
+              onPress={() => setShowAdjustmentModal(true)}
+              style={styles.newButton}
+            />
+
+            <Card style={styles.infoCard}>
+              <Ionicons name="information-circle" size={24} color="#2563eb" />
+              <View style={styles.infoContent}>
+                <Text style={styles.infoTitle}>When to use Adjustments?</Text>
+                <Text style={styles.infoText}>• Credit: Reduce balance (overpayment, correction)</Text>
+                <Text style={styles.infoText}>• Debit: Add charge (missed charge, penalty)</Text>
+              </View>
+            </Card>
+
+            <Text style={styles.sectionTitle}>Adjustment History</Text>
+            {adjustments.length === 0 ? (
+              <Card style={styles.emptyCard}>
+                <Ionicons name="swap-horizontal" size={48} color="#94a3b8" />
+                <Text style={styles.emptyText}>No adjustments yet</Text>
+              </Card>
+            ) : (
+              adjustments.map(adj => (
+                <Card key={adj.id} style={styles.adjustmentCard}>
+                  <View style={styles.adjustmentHeader}>
+                    <View style={styles.adjustmentInfo}>
+                      <Text style={styles.adjustmentUnit}>{adj.unit_display}</Text>
+                      <Text style={styles.adjustmentCategory}>{adj.category_name}</Text>
+                    </View>
+                    <View style={[
+                      styles.adjustmentBadge,
+                      { backgroundColor: adj.adjustment_type === 'credit' ? '#dcfce7' : '#fef2f2' }
+                    ]}>
+                      <Text style={[
+                        styles.adjustmentBadgeText,
+                        { color: adj.adjustment_type === 'credit' ? '#16a34a' : '#dc2626' }
+                      ]}>
+                        {adj.adjustment_type === 'credit' ? '-' : '+'}{formatCurrency(adj.amount)}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.adjustmentReason}>{adj.reason}</Text>
+                  {adj.period && <Text style={styles.adjustmentPeriod}>Period: {adj.period}</Text>}
+                </Card>
+              ))
+            )}
+          </View>
+        )}
       </ScrollView>
 
-      {/* Create Setup Modal */}
+      {/* CREATE ANNUAL SETUP MODAL */}
       <Modal
         visible={showSetupModal}
         animationType="slide"
         transparent={true}
         onRequestClose={() => setShowSetupModal(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>New Annual Setup</Text>
@@ -483,14 +742,14 @@ export default function BillingScreen() {
               keyboardType="number-pad"
             />
             <Input
-              label="Prior Year Water Total (W)"
+              label="Prior Year Water Total (W) in ₹"
               value={newSetup.water_total}
               onChangeText={(text) => setNewSetup({ ...newSetup, water_total: text })}
               placeholder="e.g., 50000"
               keyboardType="decimal-pad"
             />
             <Input
-              label="Prior Year Electricity Total (E)"
+              label="Prior Year Electricity Total (E) in ₹"
               value={newSetup.electricity_total}
               onChangeText={(text) => setNewSetup({ ...newSetup, electricity_total: text })}
               placeholder="e.g., 100000"
@@ -510,115 +769,17 @@ export default function BillingScreen() {
               disabled={isSubmitting}
             />
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
-      {/* Record Payment Modal */}
-      <Modal
-        visible={showPaymentModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowPaymentModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Record Payment</Text>
-              <TouchableOpacity onPress={() => setShowPaymentModal(false)}>
-                <Ionicons name="close" size={24} color="#64748b" />
-              </TouchableOpacity>
-            </View>
-            {selectedUnit && (
-              <View style={styles.selectedUnitInfo}>
-                <Text style={styles.selectedUnitName}>{selectedUnit.display_name}</Text>
-                <Text style={styles.selectedUnitBalance}>
-                  Balance: {formatCurrency(selectedUnit.current_balance)}
-                </Text>
-              </View>
-            )}
-            <Input
-              label="Amount (₹)"
-              value={newPayment.amount}
-              onChangeText={(text) => setNewPayment({ ...newPayment, amount: text })}
-              placeholder="Enter amount"
-              keyboardType="decimal-pad"
-            />
-            <Input
-              label="Payment Date"
-              value={newPayment.payment_date}
-              onChangeText={(text) => setNewPayment({ ...newPayment, payment_date: text })}
-              placeholder="YYYY-MM-DD"
-            />
-            <Text style={styles.methodLabel}>Payment Method</Text>
-            <View style={styles.methodButtons}>
-              {['upi', 'bank_transfer', 'cash', 'cheque'].map(method => (
-                <TouchableOpacity
-                  key={method}
-                  style={[
-                    styles.methodButton,
-                    newPayment.method === method && styles.methodButtonActive
-                  ]}
-                  onPress={() => setNewPayment({ ...newPayment, method })}
-                >
-                  <Text style={[
-                    styles.methodButtonText,
-                    newPayment.method === method && styles.methodButtonTextActive
-                  ]}>
-                    {method.replace('_', ' ').toUpperCase()}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <Input
-              label="Reference/Transaction ID"
-              value={newPayment.reference}
-              onChangeText={(text) => setNewPayment({ ...newPayment, reference: text })}
-              placeholder="Transaction reference"
-            />
-            <Button 
-              title="Record Payment" 
-              onPress={handleRecordPayment} 
-              loading={isSubmitting}
-              disabled={isSubmitting}
-            />
-          </View>
-        </View>
-      </Modal>
-
-      {/* Result Modal for Web */}
-      <Modal
-        visible={showResultModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowResultModal(false)}
-      >
-        <View style={styles.resultModalOverlay}>
-          <View style={styles.resultModalContent}>
-            <Ionicons 
-              name={resultMessage.isError ? "alert-circle" : "checkmark-circle"} 
-              size={48} 
-              color={resultMessage.isError ? "#dc2626" : "#16a34a"} 
-            />
-            <Text style={styles.resultModalTitle}>{resultMessage.title}</Text>
-            <Text style={styles.resultModalMessage}>{resultMessage.message}</Text>
-            <Pressable 
-              style={[styles.resultModalButton, { backgroundColor: resultMessage.isError ? '#dc2626' : '#16a34a' }]}
-              onPress={() => setShowResultModal(false)}
-            >
-              <Text style={styles.resultModalButtonText}>OK</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Edit Setup Modal */}
+      {/* EDIT ANNUAL SETUP MODAL */}
       <Modal
         visible={showEditSetupModal}
         animationType="slide"
         transparent={true}
         onRequestClose={() => setShowEditSetupModal(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Edit Annual Setup - {selectedSetup?.year}</Text>
@@ -654,10 +815,372 @@ export default function BillingScreen() {
               disabled={isSubmitting}
             />
           </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* RECORD PAYMENT MODAL */}
+      <Modal
+        visible={showPaymentModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowPaymentModal(false)}
+      >
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
+          <ScrollView>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Record Payment</Text>
+                <TouchableOpacity onPress={() => setShowPaymentModal(false)}>
+                  <Ionicons name="close" size={24} color="#64748b" />
+                </TouchableOpacity>
+              </View>
+              {selectedUnit && (
+                <View style={styles.selectedUnitInfo}>
+                  <Text style={styles.selectedUnitName}>{selectedUnit.display_name}</Text>
+                  <Text style={styles.selectedUnitBalance}>
+                    Outstanding: {formatCurrency(selectedUnit.current_balance)}
+                  </Text>
+                </View>
+              )}
+              
+              <Text style={styles.fieldLabel}>Payment For (Category) *</Text>
+              <View style={styles.categoryGrid}>
+                {categories.map(cat => (
+                  <TouchableOpacity
+                    key={cat.id}
+                    style={[
+                      styles.categoryButton,
+                      newPayment.category_id === cat.id && styles.categoryButtonActive
+                    ]}
+                    onPress={() => setNewPayment({ ...newPayment, category_id: cat.id })}
+                  >
+                    <Text style={[
+                      styles.categoryButtonText,
+                      newPayment.category_id === cat.id && styles.categoryButtonTextActive
+                    ]}>
+                      {cat.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              
+              <Input
+                label="Amount (₹) *"
+                value={newPayment.amount}
+                onChangeText={(text) => setNewPayment({ ...newPayment, amount: text })}
+                placeholder="Enter amount"
+                keyboardType="decimal-pad"
+              />
+              <Input
+                label="Payment Date"
+                value={newPayment.payment_date}
+                onChangeText={(text) => setNewPayment({ ...newPayment, payment_date: text })}
+                placeholder="YYYY-MM-DD"
+              />
+              <Text style={styles.fieldLabel}>Payment Method</Text>
+              <View style={styles.methodButtons}>
+                {['upi', 'bank_transfer', 'cash', 'cheque'].map(method => (
+                  <TouchableOpacity
+                    key={method}
+                    style={[
+                      styles.methodButton,
+                      newPayment.method === method && styles.methodButtonActive
+                    ]}
+                    onPress={() => setNewPayment({ ...newPayment, method })}
+                  >
+                    <Text style={[
+                      styles.methodButtonText,
+                      newPayment.method === method && styles.methodButtonTextActive
+                    ]}>
+                      {method.replace('_', ' ').toUpperCase()}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Input
+                label="Reference/Transaction ID"
+                value={newPayment.reference}
+                onChangeText={(text) => setNewPayment({ ...newPayment, reference: text })}
+                placeholder="Transaction reference"
+              />
+              <Input
+                label="Notes"
+                value={newPayment.notes}
+                onChangeText={(text) => setNewPayment({ ...newPayment, notes: text })}
+                placeholder="e.g., Feb 2025 utilities"
+                multiline
+              />
+              <Button 
+                title="Record Payment" 
+                onPress={handleRecordPayment} 
+                loading={isSubmitting}
+                disabled={isSubmitting}
+              />
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* RECORD EXPENSE MODAL */}
+      <Modal
+        visible={showExpenseModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowExpenseModal(false)}
+      >
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
+          <ScrollView>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Record Expense</Text>
+                <TouchableOpacity onPress={() => setShowExpenseModal(false)}>
+                  <Ionicons name="close" size={24} color="#64748b" />
+                </TouchableOpacity>
+              </View>
+              
+              <Input
+                label="Vendor/Payee Name *"
+                value={newExpense.vendor_name}
+                onChangeText={(text) => setNewExpense({ ...newExpense, vendor_name: text })}
+                placeholder="e.g., KSEB, Security Co., Plumber"
+              />
+              
+              <Text style={styles.fieldLabel}>Expense Category *</Text>
+              <View style={styles.categoryGrid}>
+                {categories.map(cat => (
+                  <TouchableOpacity
+                    key={cat.id}
+                    style={[
+                      styles.categoryButton,
+                      newExpense.category_id === cat.id && styles.categoryButtonActive
+                    ]}
+                    onPress={() => setNewExpense({ ...newExpense, category_id: cat.id })}
+                  >
+                    <Text style={[
+                      styles.categoryButtonText,
+                      newExpense.category_id === cat.id && styles.categoryButtonTextActive
+                    ]}>
+                      {cat.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              
+              <Input
+                label="Amount (₹) *"
+                value={newExpense.amount}
+                onChangeText={(text) => setNewExpense({ ...newExpense, amount: text })}
+                placeholder="Enter amount"
+                keyboardType="decimal-pad"
+              />
+              <Input
+                label="Payment Date"
+                value={newExpense.payment_date}
+                onChangeText={(text) => setNewExpense({ ...newExpense, payment_date: text })}
+                placeholder="YYYY-MM-DD"
+              />
+              <Input
+                label="Invoice Number"
+                value={newExpense.invoice_number}
+                onChangeText={(text) => setNewExpense({ ...newExpense, invoice_number: text })}
+                placeholder="e.g., INV-2025-001"
+              />
+              <Text style={styles.fieldLabel}>Payment Method</Text>
+              <View style={styles.methodButtons}>
+                {['upi', 'bank_transfer', 'cash', 'cheque'].map(method => (
+                  <TouchableOpacity
+                    key={method}
+                    style={[
+                      styles.methodButton,
+                      newExpense.method === method && styles.methodButtonActive
+                    ]}
+                    onPress={() => setNewExpense({ ...newExpense, method })}
+                  >
+                    <Text style={[
+                      styles.methodButtonText,
+                      newExpense.method === method && styles.methodButtonTextActive
+                    ]}>
+                      {method.replace('_', ' ').toUpperCase()}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Input
+                label="Reference/Transaction ID"
+                value={newExpense.reference}
+                onChangeText={(text) => setNewExpense({ ...newExpense, reference: text })}
+                placeholder="Transaction reference"
+              />
+              <Input
+                label="Description"
+                value={newExpense.description}
+                onChangeText={(text) => setNewExpense({ ...newExpense, description: text })}
+                placeholder="What was this payment for?"
+                multiline
+              />
+              <Button 
+                title="Record Expense" 
+                onPress={handleRecordExpense} 
+                loading={isSubmitting}
+                disabled={isSubmitting}
+              />
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* CREATE ADJUSTMENT MODAL */}
+      <Modal
+        visible={showAdjustmentModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowAdjustmentModal(false)}
+      >
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
+          <ScrollView>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Create Adjustment</Text>
+                <TouchableOpacity onPress={() => setShowAdjustmentModal(false)}>
+                  <Ionicons name="close" size={24} color="#64748b" />
+                </TouchableOpacity>
+              </View>
+              
+              <Text style={styles.fieldLabel}>Adjustment Type *</Text>
+              <View style={styles.typeToggle}>
+                <TouchableOpacity
+                  style={[
+                    styles.typeButton,
+                    newAdjustment.adjustment_type === 'credit' && styles.typeCreditActive
+                  ]}
+                  onPress={() => setNewAdjustment({ ...newAdjustment, adjustment_type: 'credit' })}
+                >
+                  <Ionicons name="remove-circle" size={20} color={newAdjustment.adjustment_type === 'credit' ? '#fff' : '#16a34a'} />
+                  <Text style={[
+                    styles.typeButtonText,
+                    newAdjustment.adjustment_type === 'credit' && styles.typeButtonTextActive
+                  ]}>
+                    Credit (Reduce)
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.typeButton,
+                    newAdjustment.adjustment_type === 'debit' && styles.typeDebitActive
+                  ]}
+                  onPress={() => setNewAdjustment({ ...newAdjustment, adjustment_type: 'debit' })}
+                >
+                  <Ionicons name="add-circle" size={20} color={newAdjustment.adjustment_type === 'debit' ? '#fff' : '#dc2626'} />
+                  <Text style={[
+                    styles.typeButtonText,
+                    newAdjustment.adjustment_type === 'debit' && styles.typeButtonTextActive
+                  ]}>
+                    Debit (Add)
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              
+              <Text style={styles.fieldLabel}>Select Unit *</Text>
+              <View style={styles.unitGrid}>
+                {units.map(unit => (
+                  <TouchableOpacity
+                    key={unit.id}
+                    style={[
+                      styles.unitSelectButton,
+                      newAdjustment.unit_id === unit.id && styles.unitSelectButtonActive
+                    ]}
+                    onPress={() => setNewAdjustment({ ...newAdjustment, unit_id: unit.id })}
+                  >
+                    <Text style={[
+                      styles.unitSelectText,
+                      newAdjustment.unit_id === unit.id && styles.unitSelectTextActive
+                    ]}>
+                      {unit.unit_id}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              
+              <Text style={styles.fieldLabel}>Category *</Text>
+              <View style={styles.categoryGrid}>
+                {categories.map(cat => (
+                  <TouchableOpacity
+                    key={cat.id}
+                    style={[
+                      styles.categoryButton,
+                      newAdjustment.category_id === cat.id && styles.categoryButtonActive
+                    ]}
+                    onPress={() => setNewAdjustment({ ...newAdjustment, category_id: cat.id })}
+                  >
+                    <Text style={[
+                      styles.categoryButtonText,
+                      newAdjustment.category_id === cat.id && styles.categoryButtonTextActive
+                    ]}>
+                      {cat.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              
+              <Input
+                label="Amount (₹) *"
+                value={newAdjustment.amount}
+                onChangeText={(text) => setNewAdjustment({ ...newAdjustment, amount: text })}
+                placeholder="Enter amount"
+                keyboardType="decimal-pad"
+              />
+              <Input
+                label="Reason *"
+                value={newAdjustment.reason}
+                onChangeText={(text) => setNewAdjustment({ ...newAdjustment, reason: text })}
+                placeholder="e.g., Overpayment correction, Late fee waiver"
+                multiline
+              />
+              <Input
+                label="Period (Optional)"
+                value={newAdjustment.period}
+                onChangeText={(text) => setNewAdjustment({ ...newAdjustment, period: text })}
+                placeholder="e.g., 2025-01, Q1 2025"
+              />
+              <Button 
+                title={`Create ${newAdjustment.adjustment_type === 'credit' ? 'Credit' : 'Debit'} Adjustment`}
+                onPress={handleCreateAdjustment} 
+                loading={isSubmitting}
+                disabled={isSubmitting}
+                variant={newAdjustment.adjustment_type === 'credit' ? 'success' : 'danger'}
+              />
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* RESULT MODAL */}
+      <Modal
+        visible={showResultModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowResultModal(false)}
+      >
+        <View style={styles.resultModalOverlay}>
+          <View style={styles.resultModalContent}>
+            <Ionicons 
+              name={resultMessage.isError ? "alert-circle" : "checkmark-circle"} 
+              size={48} 
+              color={resultMessage.isError ? "#dc2626" : "#16a34a"} 
+            />
+            <Text style={styles.resultModalTitle}>{resultMessage.title}</Text>
+            <Text style={styles.resultModalMessage}>{resultMessage.message}</Text>
+            <Pressable 
+              style={[styles.resultModalButton, { backgroundColor: resultMessage.isError ? '#dc2626' : '#16a34a' }]}
+              onPress={() => setShowResultModal(false)}
+            >
+              <Text style={styles.resultModalButtonText}>OK</Text>
+            </Pressable>
+          </View>
         </View>
       </Modal>
 
-      {/* Confirm Modal for Web */}
+      {/* CONFIRM MODAL */}
       <Modal
         visible={showConfirmModal}
         transparent={true}
@@ -709,18 +1232,23 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1e293b',
   },
+  tabsContainer: {
+    backgroundColor: '#fff',
+    maxHeight: 60,
+  },
   tabs: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
   },
   tab: {
-    flex: 1,
-    paddingVertical: 12,
+    flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 8,
-    marginHorizontal: 4,
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 20,
     backgroundColor: '#f1f5f9',
   },
   tabActive: {
@@ -742,8 +1270,6 @@ const styles = StyleSheet.create({
   },
   formulaCard: {
     backgroundColor: '#eff6ff',
-    borderRadius: 16,
-    padding: 16,
     marginBottom: 24,
   },
   formulaTitle: {
@@ -766,17 +1292,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontFamily: 'monospace',
   },
-  formulaNote: {
-    fontSize: 12,
-    color: '#64748b',
-    marginTop: 8,
-    fontStyle: 'italic',
-  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#1e293b',
+    marginBottom: 12,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: '#64748b',
     marginBottom: 16,
+    marginTop: -8,
   },
   emptyCard: {
     alignItems: 'center',
@@ -786,6 +1312,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#64748b',
     marginTop: 16,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#94a3b8',
+    marginTop: 4,
   },
   setupCard: {
     marginBottom: 16,
@@ -847,11 +1378,37 @@ const styles = StyleSheet.create({
   setupActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
+    alignItems: 'center',
     marginTop: 16,
     gap: 8,
   },
+  iconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#eff6ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteButton: {
+    backgroundColor: '#fef2f2',
+  },
   actionButton: {
-    minWidth: 120,
+    minWidth: 100,
+  },
+  postedNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+  },
+  postedNoteText: {
+    fontSize: 14,
+    color: '#16a34a',
+    fontWeight: '500',
   },
   unitPaymentCard: {
     flexDirection: 'row',
@@ -881,6 +1438,114 @@ const styles = StyleSheet.create({
   unitPaymentBalance: {
     fontSize: 16,
     fontWeight: '700',
+  },
+  expenseCard: {
+    marginBottom: 12,
+  },
+  expenseHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  expenseInfo: {
+    flex: 1,
+  },
+  expenseVendor: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  expenseCategory: {
+    fontSize: 14,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  expenseAmount: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#dc2626',
+  },
+  expenseDetails: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+  },
+  expenseDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  expenseDetailText: {
+    fontSize: 13,
+    color: '#64748b',
+  },
+  expenseDescription: {
+    fontSize: 14,
+    color: '#475569',
+    marginTop: 12,
+    fontStyle: 'italic',
+  },
+  adjustmentCard: {
+    marginBottom: 12,
+  },
+  adjustmentHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  adjustmentInfo: {
+    flex: 1,
+  },
+  adjustmentUnit: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  adjustmentCategory: {
+    fontSize: 14,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  adjustmentBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  adjustmentBadgeText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  adjustmentReason: {
+    fontSize: 14,
+    color: '#475569',
+    marginTop: 12,
+  },
+  adjustmentPeriod: {
+    fontSize: 13,
+    color: '#94a3b8',
+    marginTop: 4,
+  },
+  infoCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    backgroundColor: '#eff6ff',
+    marginBottom: 24,
+  },
+  infoContent: {
+    flex: 1,
+  },
+  infoTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1e40af',
+    marginBottom: 8,
+  },
+  infoText: {
+    fontSize: 13,
+    color: '#3b82f6',
+    marginBottom: 4,
   },
   modalOverlay: {
     flex: 1,
@@ -921,11 +1586,37 @@ const styles = StyleSheet.create({
     color: '#64748b',
     marginTop: 4,
   },
-  methodLabel: {
+  fieldLabel: {
     fontSize: 14,
     fontWeight: '500',
     color: '#374151',
     marginBottom: 8,
+  },
+  categoryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  categoryButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#f1f5f9',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  categoryButtonActive: {
+    backgroundColor: '#dbeafe',
+    borderColor: '#2563eb',
+  },
+  categoryButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  categoryButtonTextActive: {
+    color: '#2563eb',
   },
   methodButtons: {
     flexDirection: 'row',
@@ -934,7 +1625,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   methodButton: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 8,
     backgroundColor: '#f1f5f9',
@@ -949,6 +1640,65 @@ const styles = StyleSheet.create({
   },
   methodButtonTextActive: {
     color: '#fff',
+  },
+  typeToggle: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  typeButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#f1f5f9',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  typeCreditActive: {
+    backgroundColor: '#16a34a',
+    borderColor: '#16a34a',
+  },
+  typeDebitActive: {
+    backgroundColor: '#dc2626',
+    borderColor: '#dc2626',
+  },
+  typeButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  typeButtonTextActive: {
+    color: '#fff',
+  },
+  unitGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  unitSelectButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#f1f5f9',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  unitSelectButtonActive: {
+    backgroundColor: '#dbeafe',
+    borderColor: '#2563eb',
+  },
+  unitSelectText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  unitSelectTextActive: {
+    color: '#2563eb',
   },
   resultModalOverlay: {
     flex: 1,
@@ -986,31 +1736,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
-  },
-  iconButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: '#eff6ff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  deleteButton: {
-    backgroundColor: '#fef2f2',
-  },
-  postedNote: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
-  },
-  postedNoteText: {
-    fontSize: 14,
-    color: '#16a34a',
-    fontWeight: '500',
   },
   confirmButtons: {
     flexDirection: 'row',
