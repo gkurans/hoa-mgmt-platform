@@ -254,18 +254,33 @@ export default function DocumentsScreen() {
       
       // Check file size (25MB max)
       if (file.size && file.size > 25 * 1024 * 1024) {
-        Alert.alert('Error', 'File too large. Maximum size is 25MB.');
+        if (Platform.OS === 'web') {
+          alert('File too large. Maximum size is 25MB.');
+        } else {
+          Alert.alert('Error', 'File too large. Maximum size is 25MB.');
+        }
         return;
       }
 
       setUploading(true);
       
       const formData = new FormData();
-      formData.append('file', {
-        uri: file.uri,
-        name: file.name,
-        type: file.mimeType || 'application/octet-stream',
-      } as any);
+      
+      // Handle web vs native file differently
+      if (Platform.OS === 'web') {
+        // On web, we need to fetch the file and create a Blob
+        const response = await fetch(file.uri);
+        const blob = await response.blob();
+        formData.append('file', blob, file.name);
+      } else {
+        // On native, use the URI approach
+        formData.append('file', {
+          uri: file.uri,
+          name: file.name,
+          type: file.mimeType || 'application/octet-stream',
+        } as any);
+      }
+      
       formData.append('folder_id', currentFolderId || '');
       if (uploadDescription) {
         formData.append('description', uploadDescription);
@@ -276,10 +291,20 @@ export default function DocumentsScreen() {
       setShowUploadModal(false);
       setUploadDescription('');
       fetchData();
-      Alert.alert('Success', 'File uploaded successfully');
+      
+      if (Platform.OS === 'web') {
+        alert('File uploaded successfully');
+      } else {
+        Alert.alert('Success', 'File uploaded successfully');
+      }
     } catch (error: any) {
       console.error('Upload error:', error);
-      Alert.alert('Error', error.response?.data?.detail || 'Failed to upload file');
+      const errorMessage = error.response?.data?.detail || 'Failed to upload file';
+      if (Platform.OS === 'web') {
+        alert(errorMessage);
+      } else {
+        Alert.alert('Error', errorMessage);
+      }
     } finally {
       setUploading(false);
     }
