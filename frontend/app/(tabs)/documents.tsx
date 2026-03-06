@@ -1,50 +1,765 @@
-import React from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
+  ScrollView,
+  RefreshControl,
+  TouchableOpacity,
+  Modal,
+  Pressable,
+  TextInput,
+  Alert,
+  Platform,
+  Linking,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as DocumentPicker from 'expo-document-picker';
+import { useAuthStore } from '../../src/store/authStore';
+import {
+  getFolders,
+  getFolder,
+  createFolder,
+  deleteFolder,
+  getFiles,
+  uploadFile,
+  deleteFile,
+  searchDocuments,
+  getBreadcrumb,
+} from '../../src/services/api';
 import Card from '../../src/components/Card';
+import LoadingSpinner from '../../src/components/LoadingSpinner';
+
+interface Folder {
+  id: string;
+  name: string;
+  parent_id: string | null;
+  path: string;
+  description: string | null;
+  created_by: string;
+  created_at: string;
+  children_count: number;
+  files_count: number;
+}
+
+interface Document {
+  id: string;
+  filename: string;
+  original_filename: string;
+  folder_id: string;
+  folder_path: string;
+  file_size: number;
+  file_type: string;
+  mime_type: string;
+  description: string | null;
+  uploaded_by: string;
+  uploaded_by_role: string;
+  uploaded_at: string;
+  version: number;
+  previous_versions: any[];
+}
+
+interface Breadcrumb {
+  id: string;
+  name: string;
+}
+
+const FILE_ICONS: Record<string, string> = {
+  '.pdf': 'document-text',
+  '.doc': 'document',
+  '.docx': 'document',
+  '.xls': 'grid',
+  '.xlsx': 'grid',
+  '.jpg': 'image',
+  '.jpeg': 'image',
+  '.png': 'image',
+  '.csv': 'grid',
+  '.txt': 'document-text',
+};
+
+const formatFileSize = (bytes: number): string => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+const formatDate = (dateString: string): string => {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+};
 
 export default function DocumentsScreen() {
+  const { isAdmin } = useAuthStore();
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [files, setFiles] = useState<Document[]>([]);
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+  const [breadcrumb, setBreadcrumb] = useState<Breadcrumb[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<{ folders: Folder[]; documents: Document[] } | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  
+  // Modals
+  const [showCreateFolderModal, setShowCreateFolderModal] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showFileDetailModal, setShowFileDetailModal] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<Document | null>(null);
+  
+  // Form state
+  const [newFolderName, setNewFolderName] = useState('');
+  const [newFolderDescription, setNewFolderDescription] = useState('');
+  const [uploadDescription, setUploadDescription] = useState('');
+
+  const fetchData = useCallback(async () => {
+    try {
+      const [foldersRes, filesRes] = await Promise.all([
+        getFolders(currentFolderId || undefined),
+        getFiles(currentFolderId || undefined),
+      ]);
+      setFolders(foldersRes.data);
+      setFiles(filesRes.data);
+      
+      if (currentFolderId) {
+        const breadcrumbRes = await getBreadcrumb(currentFolderId);
+        setBreadcrumb(breadcrumbRes.data);
+      } else {
+        setBreadcrumb([]);
+      }
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [currentFolderId]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    setSearchResults(null);
+    setSearchQuery('');
+    fetchData();
+  };
+
+  const handleSearch = async () => {
+    if (searchQuery.length < 2) return;
+    
+    setIsSearching(true);
+    try {
+      const response = await searchDocuments(searchQuery);
+      setSearchResults(response.data);
+    } catch (error) {
+      console.error('Search error:', error);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const clearSearch = () => {
+    setSearchQuery('');
+    setSearchResults(null);
+  };
+
+  const navigateToFolder = (folderId: string | null) => {
+    setLoading(true);
+    setCurrentFolderId(folderId);
+    setSearchResults(null);
+    setSearchQuery('');
+  };
+
+  const handleCreateFolder = async () => {
+    if (!newFolderName.trim()) {
+      Alert.alert('Error', 'Please enter a folder name');
+      return;
+    }
+
+    try {
+      await createFolder({
+        name: newFolderName.trim(),
+        parent_id: currentFolderId || undefined,
+        description: newFolderDescription.trim() || undefined,
+      });
+      setShowCreateFolderModal(false);
+      setNewFolderName('');
+      setNewFolderDescription('');
+      fetchData();
+    } catch (error: any) {
+      Alert.alert('Error', error.response?.data?.detail || 'Failed to create folder');
+    }
+  };
+
+  const handleDeleteFolder = async (folder: Folder) => {
+    if (folder.children_count > 0 || folder.files_count > 0) {
+      Alert.alert('Error', 'Cannot delete folder with contents. Remove all files and subfolders first.');
+      return;
+    }
+
+    if (Platform.OS === 'web') {
+      if (confirm(`Delete folder "${folder.name}"?`)) {
+        try {
+          await deleteFolder(folder.id);
+          fetchData();
+        } catch (error: any) {
+          alert(error.response?.data?.detail || 'Failed to delete folder');
+        }
+      }
+    } else {
+      Alert.alert(
+        'Delete Folder',
+        `Are you sure you want to delete "${folder.name}"?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await deleteFolder(folder.id);
+                fetchData();
+              } catch (error: any) {
+                Alert.alert('Error', error.response?.data?.detail || 'Failed to delete folder');
+              }
+            },
+          },
+        ]
+      );
+    }
+  };
+
+  const handlePickFile = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'image/*', 'application/msword', 
+               'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+               'application/vnd.ms-excel',
+               'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+               'text/csv', 'text/plain'],
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled) return;
+
+      const file = result.assets[0];
+      
+      // Check file size (25MB max)
+      if (file.size && file.size > 25 * 1024 * 1024) {
+        Alert.alert('Error', 'File too large. Maximum size is 25MB.');
+        return;
+      }
+
+      setUploading(true);
+      
+      const formData = new FormData();
+      formData.append('file', {
+        uri: file.uri,
+        name: file.name,
+        type: file.mimeType || 'application/octet-stream',
+      } as any);
+      formData.append('folder_id', currentFolderId || '');
+      if (uploadDescription) {
+        formData.append('description', uploadDescription);
+      }
+
+      await uploadFile(formData);
+      
+      setShowUploadModal(false);
+      setUploadDescription('');
+      fetchData();
+      Alert.alert('Success', 'File uploaded successfully');
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      Alert.alert('Error', error.response?.data?.detail || 'Failed to upload file');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeleteFile = async (file: Document) => {
+    if (Platform.OS === 'web') {
+      if (confirm(`Delete "${file.original_filename}"?`)) {
+        try {
+          await deleteFile(file.id);
+          setShowFileDetailModal(false);
+          fetchData();
+        } catch (error: any) {
+          alert(error.response?.data?.detail || 'Failed to delete file');
+        }
+      }
+    } else {
+      Alert.alert(
+        'Delete File',
+        `Are you sure you want to delete "${file.original_filename}"?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await deleteFile(file.id);
+                setShowFileDetailModal(false);
+                fetchData();
+              } catch (error: any) {
+                Alert.alert('Error', error.response?.data?.detail || 'Failed to delete file');
+              }
+            },
+          },
+        ]
+      );
+    }
+  };
+
+  const handleDownloadFile = async (file: Document) => {
+    const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+    const downloadUrl = `${API_URL}/api/documents/files/${file.id}/download`;
+    
+    try {
+      if (Platform.OS === 'web') {
+        window.open(downloadUrl, '_blank');
+      } else {
+        await Linking.openURL(downloadUrl);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Could not download file');
+    }
+  };
+
+  const openFileDetail = (file: Document) => {
+    setSelectedFile(file);
+    setShowFileDetailModal(true);
+  };
+
+  if (loading && !refreshing) {
+    return <LoadingSpinner message="Loading documents..." />;
+  }
+
+  const renderContent = () => {
+    // Search Results
+    if (searchResults) {
+      return (
+        <View>
+          <View style={styles.searchResultsHeader}>
+            <Text style={styles.searchResultsTitle}>
+              Search Results for "{searchQuery}"
+            </Text>
+            <TouchableOpacity onPress={clearSearch}>
+              <Text style={styles.clearSearchText}>Clear</Text>
+            </TouchableOpacity>
+          </View>
+
+          {searchResults.folders.length > 0 && (
+            <>
+              <Text style={styles.resultSectionTitle}>Folders ({searchResults.folders.length})</Text>
+              {searchResults.folders.map(folder => (
+                <TouchableOpacity
+                  key={folder.id}
+                  onPress={() => navigateToFolder(folder.id)}
+                >
+                  <Card style={styles.folderCard}>
+                    <View style={styles.folderIcon}>
+                      <Ionicons name="folder" size={24} color="#f59e0b" />
+                    </View>
+                    <View style={styles.folderInfo}>
+                      <Text style={styles.folderName}>{folder.name}</Text>
+                      <Text style={styles.folderPath}>{folder.path}</Text>
+                    </View>
+                  </Card>
+                </TouchableOpacity>
+              ))}
+            </>
+          )}
+
+          {searchResults.documents.length > 0 && (
+            <>
+              <Text style={styles.resultSectionTitle}>Files ({searchResults.documents.length})</Text>
+              {searchResults.documents.map(file => (
+                <TouchableOpacity
+                  key={file.id}
+                  onPress={() => openFileDetail(file)}
+                >
+                  <Card style={styles.fileCard}>
+                    <View style={[styles.fileIcon, { backgroundColor: '#eff6ff' }]}>
+                      <Ionicons
+                        name={(FILE_ICONS[file.file_type] || 'document') as any}
+                        size={20}
+                        color="#2563eb"
+                      />
+                    </View>
+                    <View style={styles.fileInfo}>
+                      <Text style={styles.fileName}>{file.original_filename}</Text>
+                      <Text style={styles.fileMeta}>{file.folder_path}</Text>
+                    </View>
+                  </Card>
+                </TouchableOpacity>
+              ))}
+            </>
+          )}
+
+          {searchResults.folders.length === 0 && searchResults.documents.length === 0 && (
+            <Card style={styles.emptyCard}>
+              <Ionicons name="search" size={48} color="#94a3b8" />
+              <Text style={styles.emptyText}>No results found</Text>
+            </Card>
+          )}
+        </View>
+      );
+    }
+
+    // Normal folder/file view
+    return (
+      <View>
+        {/* Folders */}
+        {folders.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Folders</Text>
+            {folders.map(folder => (
+              <TouchableOpacity
+                key={folder.id}
+                onPress={() => navigateToFolder(folder.id)}
+                onLongPress={() => isAdmin && handleDeleteFolder(folder)}
+              >
+                <Card style={styles.folderCard}>
+                  <View style={styles.folderIcon}>
+                    <Ionicons name="folder" size={24} color="#f59e0b" />
+                  </View>
+                  <View style={styles.folderInfo}>
+                    <Text style={styles.folderName}>{folder.name}</Text>
+                    <Text style={styles.folderMeta}>
+                      {folder.children_count > 0 && `${folder.children_count} folders`}
+                      {folder.children_count > 0 && folder.files_count > 0 && ' • '}
+                      {folder.files_count > 0 && `${folder.files_count} files`}
+                      {folder.children_count === 0 && folder.files_count === 0 && 'Empty'}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color="#94a3b8" />
+                </Card>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {/* Files */}
+        {files.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Files</Text>
+            {files.map(file => (
+              <TouchableOpacity
+                key={file.id}
+                onPress={() => openFileDetail(file)}
+              >
+                <Card style={styles.fileCard}>
+                  <View style={[styles.fileIcon, { backgroundColor: '#eff6ff' }]}>
+                    <Ionicons
+                      name={(FILE_ICONS[file.file_type] || 'document') as any}
+                      size={20}
+                      color="#2563eb"
+                    />
+                  </View>
+                  <View style={styles.fileInfo}>
+                    <Text style={styles.fileName}>{file.original_filename}</Text>
+                    <Text style={styles.fileMeta}>
+                      {formatFileSize(file.file_size)} • {formatDate(file.uploaded_at)}
+                      {file.version > 1 && ` • v${file.version}`}
+                    </Text>
+                  </View>
+                </Card>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {/* Empty State */}
+        {folders.length === 0 && files.length === 0 && (
+          <Card style={styles.emptyCard}>
+            <Ionicons name="folder-open" size={48} color="#94a3b8" />
+            <Text style={styles.emptyText}>This folder is empty</Text>
+            {isAdmin && (
+              <Text style={styles.emptySubtext}>
+                Upload files or create subfolders
+              </Text>
+            )}
+          </Card>
+        )}
+      </View>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Documents</Text>
-        <Text style={styles.subtitle}>HOA documents and records</Text>
+        {isAdmin && currentFolderId && (
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={styles.headerButton}
+              onPress={() => setShowCreateFolderModal(true)}
+            >
+              <Ionicons name="folder-open" size={20} color="#2563eb" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.headerButton, styles.uploadButton]}
+              onPress={() => setShowUploadModal(true)}
+            >
+              <Ionicons name="cloud-upload" size={20} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
-      <View style={styles.content}>
-        <Card style={styles.comingSoonCard}>
-          <View style={styles.iconContainer}>
-            <Ionicons name="folder-open" size={64} color="#94a3b8" />
-          </View>
-          <Text style={styles.comingSoonTitle}>Coming Soon</Text>
-          <Text style={styles.comingSoonText}>
-            Document management features are currently under development.
-          </Text>
-          <View style={styles.featureList}>
-            <View style={styles.featureItem}>
-              <Ionicons name="checkmark-circle" size={20} color="#2563eb" />
-              <Text style={styles.featureText}>HOA Policies & Guidelines</Text>
-            </View>
-            <View style={styles.featureItem}>
-              <Ionicons name="checkmark-circle" size={20} color="#2563eb" />
-              <Text style={styles.featureText}>Meeting Minutes</Text>
-            </View>
-            <View style={styles.featureItem}>
-              <Ionicons name="checkmark-circle" size={20} color="#2563eb" />
-              <Text style={styles.featureText}>Financial Statements</Text>
-            </View>
-            <View style={styles.featureItem}>
-              <Ionicons name="checkmark-circle" size={20} color="#2563eb" />
-              <Text style={styles.featureText}>Unit Documents</Text>
-            </View>
-          </View>
-        </Card>
+      {/* Search Bar */}
+      <View style={styles.searchContainer}>
+        <View style={styles.searchInputContainer}>
+          <Ionicons name="search" size={20} color="#94a3b8" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search documents..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            onSubmitEditing={handleSearch}
+            returnKeyType="search"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={clearSearch}>
+              <Ionicons name="close-circle" size={20} color="#94a3b8" />
+            </TouchableOpacity>
+          )}
+        </View>
+        {isSearching && <ActivityIndicator size="small" color="#2563eb" />}
       </View>
+
+      {/* Breadcrumb */}
+      {breadcrumb.length > 0 && !searchResults && (
+        <View style={styles.breadcrumbContainer}>
+          <TouchableOpacity
+            style={styles.breadcrumbItem}
+            onPress={() => navigateToFolder(null)}
+          >
+            <Ionicons name="home" size={16} color="#2563eb" />
+          </TouchableOpacity>
+          {breadcrumb.map((item, index) => (
+            <View key={item.id} style={styles.breadcrumbItem}>
+              <Ionicons name="chevron-forward" size={14} color="#94a3b8" />
+              <TouchableOpacity
+                onPress={() => navigateToFolder(item.id)}
+              >
+                <Text style={[
+                  styles.breadcrumbText,
+                  index === breadcrumb.length - 1 && styles.breadcrumbTextActive
+                ]}>
+                  {item.name}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+      )}
+
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        {renderContent()}
+      </ScrollView>
+
+      {/* Create Folder Modal */}
+      <Modal
+        visible={showCreateFolderModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowCreateFolderModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Create Folder</Text>
+              <TouchableOpacity onPress={() => setShowCreateFolderModal(false)}>
+                <Ionicons name="close" size={24} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.modalBody}>
+              <Text style={styles.inputLabel}>Folder Name</Text>
+              <TextInput
+                style={styles.input}
+                value={newFolderName}
+                onChangeText={setNewFolderName}
+                placeholder="Enter folder name"
+              />
+              <Text style={styles.inputLabel}>Description (Optional)</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                value={newFolderDescription}
+                onChangeText={setNewFolderDescription}
+                placeholder="Enter description"
+                multiline
+                numberOfLines={3}
+              />
+            </View>
+            <View style={styles.modalFooter}>
+              <Pressable
+                style={styles.cancelButton}
+                onPress={() => setShowCreateFolderModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </Pressable>
+              <Pressable style={styles.submitButton} onPress={handleCreateFolder}>
+                <Text style={styles.submitButtonText}>Create</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Upload Modal */}
+      <Modal
+        visible={showUploadModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowUploadModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Upload File</Text>
+              <TouchableOpacity onPress={() => setShowUploadModal(false)}>
+                <Ionicons name="close" size={24} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.modalBody}>
+              <Text style={styles.inputLabel}>Description (Optional)</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                value={uploadDescription}
+                onChangeText={setUploadDescription}
+                placeholder="Enter file description"
+                multiline
+                numberOfLines={3}
+              />
+              <Text style={styles.uploadNote}>
+                Allowed: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG, CSV, TXT{'\n'}
+                Maximum size: 25MB
+              </Text>
+            </View>
+            <View style={styles.modalFooter}>
+              <Pressable
+                style={styles.cancelButton}
+                onPress={() => setShowUploadModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.submitButton, uploading && styles.submitButtonDisabled]}
+                onPress={handlePickFile}
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.submitButtonText}>Select File</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* File Detail Modal */}
+      <Modal
+        visible={showFileDetailModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowFileDetailModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>File Details</Text>
+              <TouchableOpacity onPress={() => setShowFileDetailModal(false)}>
+                <Ionicons name="close" size={24} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+            {selectedFile && (
+              <ScrollView style={styles.modalBody}>
+                <View style={styles.fileDetailHeader}>
+                  <View style={[styles.fileDetailIcon, { backgroundColor: '#eff6ff' }]}>
+                    <Ionicons
+                      name={(FILE_ICONS[selectedFile.file_type] || 'document') as any}
+                      size={32}
+                      color="#2563eb"
+                    />
+                  </View>
+                  <Text style={styles.fileDetailName}>{selectedFile.original_filename}</Text>
+                </View>
+
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Size</Text>
+                  <Text style={styles.detailValue}>{formatFileSize(selectedFile.file_size)}</Text>
+                </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Type</Text>
+                  <Text style={styles.detailValue}>{selectedFile.file_type.toUpperCase()}</Text>
+                </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Location</Text>
+                  <Text style={styles.detailValue}>{selectedFile.folder_path}</Text>
+                </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Uploaded By</Text>
+                  <Text style={styles.detailValue}>
+                    {selectedFile.uploaded_by} ({selectedFile.uploaded_by_role})
+                  </Text>
+                </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Upload Date</Text>
+                  <Text style={styles.detailValue}>{formatDate(selectedFile.uploaded_at)}</Text>
+                </View>
+                {selectedFile.version > 1 && (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Version</Text>
+                    <Text style={styles.detailValue}>v{selectedFile.version}</Text>
+                  </View>
+                )}
+                {selectedFile.description && (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Description</Text>
+                    <Text style={styles.detailValue}>{selectedFile.description}</Text>
+                  </View>
+                )}
+              </ScrollView>
+            )}
+            <View style={styles.modalFooter}>
+              <Pressable
+                style={styles.downloadButton}
+                onPress={() => selectedFile && handleDownloadFile(selectedFile)}
+              >
+                <Ionicons name="download" size={18} color="#fff" />
+                <Text style={styles.downloadButtonText}>Download</Text>
+              </Pressable>
+              {isAdmin && (
+                <Pressable
+                  style={styles.deleteButton}
+                  onPress={() => selectedFile && handleDeleteFile(selectedFile)}
+                >
+                  <Ionicons name="trash" size={18} color="#fff" />
+                </Pressable>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -55,6 +770,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc',
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     padding: 16,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
@@ -65,57 +783,320 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1e293b',
   },
-  subtitle: {
-    fontSize: 14,
-    color: '#64748b',
-    marginTop: 4,
+  headerActions: {
+    flexDirection: 'row',
+    gap: 8,
   },
-  content: {
-    flex: 1,
-    padding: 16,
-    justifyContent: 'center',
+  headerButton: {
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: '#eff6ff',
   },
-  comingSoonCard: {
-    alignItems: 'center',
-    paddingVertical: 40,
+  uploadButton: {
+    backgroundColor: '#2563eb',
   },
-  iconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#f1f5f9',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 24,
-  },
-  comingSoonTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1e293b',
-    marginBottom: 12,
-  },
-  comingSoonText: {
-    fontSize: 16,
-    color: '#64748b',
-    textAlign: 'center',
-    paddingHorizontal: 24,
-    marginBottom: 24,
-  },
-  featureList: {
-    alignSelf: 'stretch',
-    paddingHorizontal: 24,
-  },
-  featureItem: {
+  searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    padding: 12,
+    paddingTop: 8,
+    backgroundColor: '#fff',
+    gap: 8,
+  },
+  searchInputContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f1f5f9',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 10,
+    fontSize: 16,
+    color: '#1e293b',
+  },
+  breadcrumbContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    padding: 12,
+    paddingTop: 0,
+    backgroundColor: '#fff',
+    gap: 4,
+  },
+  breadcrumbItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  breadcrumbText: {
+    fontSize: 14,
+    color: '#2563eb',
+  },
+  breadcrumbTextActive: {
+    color: '#1e293b',
+    fontWeight: '600',
+  },
+  scrollContent: {
+    padding: 16,
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748b',
+    marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  folderCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  folderIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: '#fef3c7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  folderInfo: {
+    flex: 1,
+  },
+  folderName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  folderMeta: {
+    fontSize: 13,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  folderPath: {
+    fontSize: 13,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  fileCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  fileIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  fileInfo: {
+    flex: 1,
+  },
+  fileName: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#1e293b',
+  },
+  fileMeta: {
+    fontSize: 13,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  emptyCard: {
+    alignItems: 'center',
+    paddingVertical: 48,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1e293b',
+    marginTop: 16,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#64748b',
+    marginTop: 8,
+  },
+  searchResultsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  searchResultsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  clearSearchText: {
+    fontSize: 14,
+    color: '#2563eb',
+    fontWeight: '600',
+  },
+  resultSectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748b',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1e293b',
+  },
+  modalBody: {
+    padding: 20,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+    marginTop: 12,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#1e293b',
+    backgroundColor: '#fff',
+  },
+  textArea: {
+    height: 80,
+    textAlignVertical: 'top',
+  },
+  uploadNote: {
+    fontSize: 13,
+    color: '#64748b',
+    marginTop: 16,
+    lineHeight: 20,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    padding: 20,
     gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  submitButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#2563eb',
+    alignItems: 'center',
+  },
+  submitButtonDisabled: {
+    backgroundColor: '#93c5fd',
+  },
+  submitButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  fileDetailHeader: {
+    alignItems: 'center',
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    marginBottom: 16,
+  },
+  fileDetailIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  fileDetailName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1e293b',
+    textAlign: 'center',
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
   },
-  featureText: {
-    fontSize: 15,
-    color: '#1e293b',
+  detailLabel: {
+    fontSize: 14,
+    color: '#64748b',
+  },
+  detailValue: {
+    fontSize: 14,
     fontWeight: '500',
+    color: '#1e293b',
+    maxWidth: '60%',
+    textAlign: 'right',
+  },
+  downloadButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#2563eb',
+  },
+  downloadButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  deleteButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    borderRadius: 12,
+    backgroundColor: '#dc2626',
+    alignItems: 'center',
   },
 });
