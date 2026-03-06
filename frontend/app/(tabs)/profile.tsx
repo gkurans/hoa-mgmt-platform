@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Platform,
   Modal,
   Pressable,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -18,8 +19,15 @@ import Card from '../../src/components/Card';
 import Button from '../../src/components/Button';
 
 export default function ProfileScreen() {
-  const { user, logout } = useAuthStore();
+  const { user, logout, loadStoredAuth, isLoading } = useAuthStore();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  // Ensure user data is loaded
+  useEffect(() => {
+    if (!user) {
+      loadStoredAuth();
+    }
+  }, [user]);
 
   const handleLogout = () => {
     if (Platform.OS === 'web') {
@@ -45,6 +53,18 @@ export default function ProfileScreen() {
     await logout();
     router.replace('/(auth)/login');
   };
+
+  // Show loading state if user data not yet available
+  if (!user && isLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2563eb" />
+          <Text style={styles.loadingText}>Loading profile...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
