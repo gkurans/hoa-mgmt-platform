@@ -89,6 +89,29 @@ export const getAuditLogs = (params?: {
 export const getAuditEntityTypes = () => api.get('/audit-logs/entity-types');
 export const getAuditActions = () => api.get('/audit-logs/actions');
 
+// Document Management
+export const getFolders = (parentId?: string) => 
+  api.get('/documents/folders', { params: parentId ? { parent_id: parentId } : {} });
+export const getFolder = (folderId: string) => api.get(`/documents/folders/${folderId}`);
+export const createFolder = (data: { name: string; parent_id?: string; description?: string }) =>
+  api.post('/documents/folders', data);
+export const updateFolder = (folderId: string, data: { name?: string; description?: string }) =>
+  api.put(`/documents/folders/${folderId}`, data);
+export const deleteFolder = (folderId: string) => api.delete(`/documents/folders/${folderId}`);
+
+export const getFiles = (folderId?: string) => 
+  api.get('/documents/files', { params: folderId ? { folder_id: folderId } : {} });
+export const uploadFile = (formData: FormData) =>
+  api.post('/documents/files/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+export const downloadFile = (documentId: string) =>
+  api.get(`/documents/files/${documentId}/download`, { responseType: 'blob' });
+export const deleteFile = (documentId: string) => api.delete(`/documents/files/${documentId}`);
+
+export const searchDocuments = (query: string) => api.get('/documents/search', { params: { q: query } });
+export const getBreadcrumb = (folderId: string) => api.get(`/documents/breadcrumb/${folderId}`);
+
 // Ledger
 export const getUnitLedger = (unitId: string, year?: number) =>
   api.get(`/ledger/${unitId}`, { params: year ? { year } : {} });
