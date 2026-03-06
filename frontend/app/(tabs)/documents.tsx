@@ -238,6 +238,16 @@ export default function DocumentsScreen() {
   };
 
   const handlePickFile = async () => {
+    // Ensure we're inside a folder
+    if (!currentFolderId) {
+      if (Platform.OS === 'web') {
+        alert('Please navigate into a folder before uploading files.');
+      } else {
+        Alert.alert('Error', 'Please navigate into a folder before uploading files.');
+      }
+      return;
+    }
+    
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: ['application/pdf', 'image/*', 'application/msword', 
@@ -281,7 +291,7 @@ export default function DocumentsScreen() {
         } as any);
       }
       
-      formData.append('folder_id', currentFolderId || '');
+      formData.append('folder_id', currentFolderId);
       if (uploadDescription) {
         formData.append('description', uploadDescription);
       }
