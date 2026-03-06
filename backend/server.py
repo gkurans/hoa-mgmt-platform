@@ -1451,6 +1451,41 @@ async def carry_forward_balances(year: int, user: dict = Depends(require_admin))
 
 # ============== DASHBOARD ROUTES ==============
 
+async def get_financial_metrics():
+    """Calculate HOA financial metrics"""
+    current_year = datetime.now().year
+    year_start = datetime(current_year, 1, 1)
+    
+    # Total payments collected (all time)
+    all_payments = await db.payments.find().to_list(None)
+    total_collected = sum(p.get("amount", 0) for p in all_payments)
+    
+    # Payments this year
+    payments_this_year_docs = await db.payments.find({
+        "created_at": {"$gte": year_start}
+    }).to_list(None)
+    payments_this_year = sum(p.get("amount", 0) for p in payments_this_year_docs)
+    
+    # Total expenses (all time)
+    all_expenses = await db.expenses.find().to_list(None)
+    total_expenses = sum(e.get("amount", 0) for e in all_expenses)
+    
+    # Expenses this year
+    expenses_this_year_docs = await db.expenses.find({
+        "created_at": {"$gte": year_start}
+    }).to_list(None)
+    expenses_this_year = sum(e.get("amount", 0) for e in expenses_this_year_docs)
+    
+    # Reserve balance = Total Collected - Total Expenses
+    reserve_balance = total_collected - total_expenses
+    
+    return {
+        "reserve_balance": reserve_balance,
+        "total_collected": total_collected,
+        "payments_this_year": payments_this_year,
+        "expenses_this_year": expenses_this_year
+    }
+
 @api_router.get("/dashboard/admin", response_model=AdminDashboard)
 async def get_admin_dashboard(user: dict = Depends(require_admin)):
     units = await db.units.find().to_list(100)
@@ -1475,6 +1510,9 @@ async def get_admin_dashboard(user: dict = Depends(require_admin)):
     setup = await db.bill_inputs.find_one({"year": current_year})
     allocation_status = setup["status"] if setup else "not_started"
     
+    # Get financial metrics
+    metrics = await get_financial_metrics()
+    
     return AdminDashboard(
         total_units=len(units),
         total_condos=len([u for u in units if u["unit_type"] == "condo"]),
@@ -1482,7 +1520,11 @@ async def get_admin_dashboard(user: dict = Depends(require_admin)):
         total_outstanding=total_outstanding,
         units_overdue=units_overdue,
         recent_payments=payments_list,
-        allocation_status=allocation_status
+        allocation_status=allocation_status,
+        reserve_balance=metrics["reserve_balance"],
+        total_collected=metrics["total_collected"],
+        payments_this_year=metrics["payments_this_year"],
+        expenses_this_year=metrics["expenses_this_year"]
     )
 
 @api_router.get("/dashboard/owner", response_model=OwnerDashboard)
