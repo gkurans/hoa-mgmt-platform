@@ -1335,7 +1335,8 @@ async def update_payment(payment_id: str, update_data: PaymentUpdate, user: dict
 # ============== EXPENSES (OUTGOING PAYMENTS TO VENDORS) ==============
 
 @api_router.get("/expenses", response_model=List[ExpenseResponse])
-async def get_expenses(user: dict = Depends(require_admin)):
+async def get_expenses(user: dict = Depends(get_current_user)):
+    """Get all expenses - visible to all authenticated users for transparency"""
     expenses = await db.expenses.find().sort("created_at", -1).to_list(1000)
     result = []
     
