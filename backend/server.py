@@ -289,6 +289,11 @@ class AdminDashboard(BaseModel):
     units_overdue: int
     recent_payments: List[dict]
     allocation_status: str
+    # Financial Metrics
+    reserve_balance: float = 0.0
+    total_collected: float = 0.0
+    payments_this_year: float = 0.0
+    expenses_this_year: float = 0.0
 
 class OwnerDashboard(BaseModel):
     unit_id: str
@@ -297,6 +302,11 @@ class OwnerDashboard(BaseModel):
     last_payment_date: Optional[str] = None
     last_payment_amount: Optional[float] = None
     recent_charges: List[dict]
+    # Financial Metrics (for transparency)
+    reserve_balance: float = 0.0
+    total_collected: float = 0.0
+    payments_this_year: float = 0.0
+    expenses_this_year: float = 0.0
 
 # Audit Log
 class AuditLog(BaseModel):
