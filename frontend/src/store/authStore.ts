@@ -23,7 +23,8 @@ interface AuthState {
   register: (name: string, email: string, password: string, phone: string) => Promise<void>;
   logout: () => Promise<void>;
   loadStoredAuth: () => Promise<void>;
-  isAdmin: () => boolean;
+  isAdmin: boolean;
+  resetLoading: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -31,6 +32,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   token: null,
   isLoading: true,
   isAuthenticated: false,
+  isAdmin: false,
 
   login: async (email: string, password: string) => {
     try {
@@ -41,7 +43,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { access_token, user } = response.data;
       await AsyncStorage.setItem('token', access_token);
       await AsyncStorage.setItem('user', JSON.stringify(user));
-      set({ user, token: access_token, isAuthenticated: true });
+      const adminRole = user?.role === 'admin' || user?.role === 'treasurer';
+      set({ 
+        user, 
+        token: access_token, 
+        isAuthenticated: true, 
+        isAdmin: adminRole,
+        isLoading: false 
+      });
     } catch (error: any) {
       throw new Error(error.response?.data?.detail || 'Login failed');
     }
@@ -59,7 +68,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { access_token, user } = response.data;
       await AsyncStorage.setItem('token', access_token);
       await AsyncStorage.setItem('user', JSON.stringify(user));
-      set({ user, token: access_token, isAuthenticated: true });
+      const adminRole = user?.role === 'admin' || user?.role === 'treasurer';
+      set({ 
+        user, 
+        token: access_token, 
+        isAuthenticated: true, 
+        isAdmin: adminRole,
+        isLoading: false 
+      });
     } catch (error: any) {
       throw new Error(error.response?.data?.detail || 'Registration failed');
     }
@@ -68,7 +84,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   logout: async () => {
     await AsyncStorage.removeItem('token');
     await AsyncStorage.removeItem('user');
-    set({ user: null, token: null, isAuthenticated: false });
+    // Reset all state including isLoading to allow fresh login
+    set({ 
+      user: null, 
+      token: null, 
+      isAuthenticated: false, 
+      isAdmin: false,
+      isLoading: false 
+    });
   },
 
   loadStoredAuth: async () => {
@@ -77,17 +100,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const userStr = await AsyncStorage.getItem('user');
       if (token && userStr) {
         const user = JSON.parse(userStr);
-        set({ user, token, isAuthenticated: true, isLoading: false });
+        const adminRole = user?.role === 'admin' || user?.role === 'treasurer';
+        set({ 
+          user, 
+          token, 
+          isAuthenticated: true, 
+          isAdmin: adminRole,
+          isLoading: false 
+        });
       } else {
-        set({ isLoading: false });
+        set({ isLoading: false, isAuthenticated: false, isAdmin: false });
       }
     } catch {
-      set({ isLoading: false });
+      set({ isLoading: false, isAuthenticated: false, isAdmin: false });
     }
   },
 
-  isAdmin: () => {
-    const { user } = get();
-    return user?.role === 'admin' || user?.role === 'treasurer';
+  resetLoading: () => {
+    set({ isLoading: false });
   },
 }));
