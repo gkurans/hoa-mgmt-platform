@@ -459,6 +459,94 @@ export default function BillingScreen() {
     }
   };
 
+  // Open edit payment modal
+  const openEditPaymentModal = (payment: Payment) => {
+    setSelectedPayment(payment);
+    setEditPaymentForm({
+      amount: payment.amount.toString(),
+      payment_date: payment.payment_date,
+      method: payment.method,
+      reference: payment.reference || '',
+      notes: payment.notes || '',
+      reason: '',
+    });
+    setShowEditPaymentModal(true);
+  };
+
+  // Edit payment handler
+  const handleEditPayment = async () => {
+    if (!selectedPayment) return;
+    if (!editPaymentForm.reason.trim()) {
+      showMessage('Error', 'Reason for edit is required for audit compliance', true);
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await updatePayment(selectedPayment.id, {
+        amount: editPaymentForm.amount ? parseFloat(editPaymentForm.amount) : undefined,
+        payment_date: editPaymentForm.payment_date || undefined,
+        method: editPaymentForm.method || undefined,
+        reference: editPaymentForm.reference || undefined,
+        notes: editPaymentForm.notes || undefined,
+        reason: editPaymentForm.reason,
+      });
+      setShowEditPaymentModal(false);
+      setSelectedPayment(null);
+      showMessage('Success', 'Payment updated successfully!');
+      fetchData();
+    } catch (error: any) {
+      showMessage('Error', error.response?.data?.detail || 'Failed to update payment', true);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Open edit expense modal
+  const openEditExpenseModal = (expense: Expense) => {
+    setSelectedExpense(expense);
+    setEditExpenseForm({
+      vendor_name: expense.vendor_name,
+      amount: expense.amount.toString(),
+      payment_date: expense.payment_date,
+      description: expense.description || '',
+      method: expense.method,
+      reference: '',
+      invoice_number: expense.invoice_number || '',
+      reason: '',
+    });
+    setShowEditExpenseModal(true);
+  };
+
+  // Edit expense handler
+  const handleEditExpense = async () => {
+    if (!selectedExpense) return;
+    if (!editExpenseForm.reason.trim()) {
+      showMessage('Error', 'Reason for edit is required for audit compliance', true);
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await updateExpense(selectedExpense.id, {
+        vendor_name: editExpenseForm.vendor_name || undefined,
+        amount: editExpenseForm.amount ? parseFloat(editExpenseForm.amount) : undefined,
+        payment_date: editExpenseForm.payment_date || undefined,
+        description: editExpenseForm.description || undefined,
+        method: editExpenseForm.method || undefined,
+        reference: editExpenseForm.reference || undefined,
+        invoice_number: editExpenseForm.invoice_number || undefined,
+        reason: editExpenseForm.reason,
+      });
+      setShowEditExpenseModal(false);
+      setSelectedExpense(null);
+      showMessage('Success', 'Expense updated successfully!');
+      fetchData();
+    } catch (error: any) {
+      showMessage('Error', error.response?.data?.detail || 'Failed to update expense', true);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const formatCurrency = (amount: number) => {
     return `₹${Math.abs(amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
   };
