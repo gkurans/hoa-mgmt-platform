@@ -361,7 +361,8 @@ async def require_admin(user: dict = Depends(get_current_user)):
 # ============== AUDIT LOGGING ==============
 
 async def log_audit(entity_type: str, entity_id: str, action: str, 
-                   old_value: dict = None, new_value: dict = None, user_id: str = "system"):
+                   old_value: dict = None, new_value: dict = None, user_id: str = "system",
+                   reason: str = None):
     audit = {
         "entity_type": entity_type,
         "entity_id": entity_id,
@@ -369,6 +370,7 @@ async def log_audit(entity_type: str, entity_id: str, action: str,
         "old_value": old_value,
         "new_value": new_value,
         "performed_by": user_id,
+        "reason": reason,
         "timestamp": datetime.utcnow()
     }
     await db.audit_logs.insert_one(audit)
