@@ -1259,6 +1259,79 @@ async def create_payment(payment_data: PaymentCreate, user: dict = Depends(requi
         created_at=payment_doc["created_at"]
     )
 
+class PaymentUpdate(BaseModel):
+    amount: Optional[float] = None
+    payment_date: Optional[str] = None
+    method: Optional[str] = None
+    reference: Optional[str] = None
+    notes: Optional[str] = None
+    reason: str  # Required for any edit
+
+@api_router.put("/payments/{payment_id}", response_model=PaymentResponse)
+async def update_payment(payment_id: str, update_data: PaymentUpdate, user: dict = Depends(require_admin)):
+    """Edit a payment record - requires reason for change"""
+    payment = await db.payments.find_one({"_id": ObjectId(payment_id)})
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    
+    # Store old values for audit
+    old_values = {
+        "amount": payment["amount"],
+        "payment_date": payment["payment_date"],
+        "method": payment["method"],
+        "reference": payment.get("reference", ""),
+        "notes": payment.get("notes", "")
+    }
+    
+    update_dict = {}
+    if update_data.amount is not None:
+        # Adjust unit balance for the difference
+        difference = update_data.amount - payment["amount"]
+        await db.units.update_one(
+            {"_id": ObjectId(payment["unit_id"])},
+            {"$inc": {"current_balance": difference}}  # Positive diff means less paid
+        )
+        update_dict["amount"] = update_data.amount
+    if update_data.payment_date is not None:
+        update_dict["payment_date"] = update_data.payment_date
+    if update_data.method is not None:
+        update_dict["method"] = update_data.method
+    if update_data.reference is not None:
+        update_dict["reference"] = update_data.reference
+    if update_data.notes is not None:
+        update_dict["notes"] = update_data.notes
+    
+    update_dict["updated_at"] = datetime.utcnow()
+    update_dict["updated_by"] = str(user["_id"])
+    
+    await db.payments.update_one(
+        {"_id": ObjectId(payment_id)},
+        {"$set": update_dict}
+    )
+    
+    # Log with reason
+    await log_audit("payment", payment_id, "update", old_values, update_dict, str(user["_id"]), update_data.reason)
+    
+    # Return updated payment
+    updated = await db.payments.find_one({"_id": ObjectId(payment_id)})
+    unit = await db.units.find_one({"_id": ObjectId(updated["unit_id"])})
+    
+    return PaymentResponse(
+        id=str(updated["_id"]),
+        unit_id=updated["unit_id"],
+        unit_display=unit["display_name"] if unit else "Unknown",
+        amount=updated["amount"],
+        payment_date=updated["payment_date"],
+        method=updated["method"],
+        reference=updated.get("reference", ""),
+        notes=updated.get("notes", ""),
+        charge_id=updated.get("charge_id"),
+        charge_description=None,
+        category_name=None,
+        recorded_by=user["name"],
+        created_at=updated["created_at"]
+    )
+
 # ============== EXPENSES (OUTGOING PAYMENTS TO VENDORS) ==============
 
 @api_router.get("/expenses", response_model=List[ExpenseResponse])
