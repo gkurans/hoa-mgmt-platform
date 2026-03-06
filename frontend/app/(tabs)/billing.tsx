@@ -718,6 +718,57 @@ export default function BillingScreen() {
             )}
           </View>
         )}
+
+        {/* READ-ONLY VIEW FOR NON-ADMIN USERS */}
+        {!isAdminUser && (
+          <View>
+            <Card style={styles.infoCard}>
+              <Ionicons name="information-circle" size={48} color="#2563eb" />
+              <Text style={styles.infoCardTitle}>Billing Overview</Text>
+              <Text style={styles.infoCardText}>
+                View your unit's billing information and transaction history.
+                For questions about charges or payments, please contact the administrator.
+              </Text>
+            </Card>
+
+            <Text style={styles.sectionTitle}>Your Charges</Text>
+            {charges.filter(c => {
+              const userUnitIds = user?.unit_ids || [];
+              return userUnitIds.some(uid => c.unit_id === uid);
+            }).length === 0 ? (
+              <Card style={styles.emptyCard}>
+                <Ionicons name="receipt-outline" size={48} color="#94a3b8" />
+                <Text style={styles.emptyText}>No charges found for your units</Text>
+              </Card>
+            ) : (
+              charges.filter(c => {
+                const userUnitIds = user?.unit_ids || [];
+                return userUnitIds.some(uid => c.unit_id === uid);
+              }).map(charge => (
+                <Card key={charge.id} style={styles.chargeCard}>
+                  <View style={styles.chargeHeader}>
+                    <View>
+                      <Text style={styles.chargeCategory}>{charge.category_name}</Text>
+                      <Text style={styles.chargePeriod}>{charge.period}</Text>
+                    </View>
+                    <Text style={styles.chargeAmount}>{formatCurrency(charge.amount)}</Text>
+                  </View>
+                  <View style={[
+                    styles.statusBadge,
+                    { backgroundColor: charge.status === 'paid' ? '#dcfce7' : '#fef3c7' }
+                  ]}>
+                    <Text style={[
+                      styles.statusText,
+                      { color: charge.status === 'paid' ? '#16a34a' : '#d97706' }
+                    ]}>
+                      {charge.status.toUpperCase()}
+                    </Text>
+                  </View>
+                </Card>
+              ))
+            )}
+          </View>
+        )}
       </ScrollView>
 
       {/* CREATE ANNUAL SETUP MODAL */}
