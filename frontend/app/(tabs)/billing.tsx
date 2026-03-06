@@ -85,6 +85,19 @@ interface Expense {
   invoice_number: string;
 }
 
+interface Payment {
+  id: string;
+  unit_id: string;
+  unit_display: string;
+  amount: number;
+  payment_date: string;
+  method: string;
+  reference: string;
+  notes: string;
+  recorded_by: string;
+  created_at: string;
+}
+
 interface Adjustment {
   id: string;
   unit_display: string;
