@@ -192,12 +192,14 @@ export default function UnitsScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Management</Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => activeTab === 'units' ? setShowCreateModal(true) : setShowOwnerModal(true)}
-        >
-          <Ionicons name="add" size={24} color="#fff" />
-        </TouchableOpacity>
+        {isAdminUser && (
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => activeTab === 'units' ? setShowCreateModal(true) : setShowOwnerModal(true)}
+          >
+            <Ionicons name="add" size={24} color="#fff" />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Tabs */}
