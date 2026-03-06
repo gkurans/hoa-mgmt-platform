@@ -1572,13 +1572,20 @@ async def get_owner_dashboard(user: dict = Depends(get_current_user)):
             "status": c.get("status", "pending")
         })
     
+    # Get financial metrics (for transparency)
+    metrics = await get_financial_metrics()
+    
     return OwnerDashboard(
         unit_id=unit["unit_id"],
         unit_display=unit["display_name"],
         current_balance=unit.get("current_balance", 0.0),
         last_payment_date=last_payment["payment_date"] if last_payment else None,
         last_payment_amount=last_payment["amount"] if last_payment else None,
-        recent_charges=charges_list
+        recent_charges=charges_list,
+        reserve_balance=metrics["reserve_balance"],
+        total_collected=metrics["total_collected"],
+        payments_this_year=metrics["payments_this_year"],
+        expenses_this_year=metrics["expenses_this_year"]
     )
 
 # ============== UNIT LEDGER ==============
