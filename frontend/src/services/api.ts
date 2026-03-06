@@ -120,13 +120,22 @@ export const deleteFolder = (folderId: string) => api.delete(`/documents/folders
 
 export const getFiles = (folderId?: string) => 
   api.get('/documents/files', { params: folderId ? { folder_id: folderId } : {} });
-export const uploadFile = (formData: FormData) =>
-  api.post('/documents/files/upload', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-    transformRequest: (data) => data, // Prevent axios from transforming FormData
-  });
+export const uploadFile = (formData: FormData) => {
+  // Platform-specific handling for FormData uploads
+  const config: any = {
+    transformRequest: (data: any) => data, // Prevent axios from transforming FormData
+  };
+  
+  if (Platform.OS === 'web') {
+    // On web, don't set Content-Type - let browser set it with boundary
+    config.headers = { 'Content-Type': undefined };
+  } else {
+    // On native (iOS/Android), explicitly set multipart/form-data
+    config.headers = { 'Content-Type': 'multipart/form-data' };
+  }
+  
+  return api.post('/documents/files/upload', formData, config);
+};
 export const downloadFile = (documentId: string) =>
   api.get(`/documents/files/${documentId}/download`, { responseType: 'blob' });
 export const deleteFile = (documentId: string) => api.delete(`/documents/files/${documentId}`);
