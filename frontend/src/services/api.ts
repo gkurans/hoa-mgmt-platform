@@ -55,10 +55,28 @@ export const createCharge = (data: any) => api.post('/charges', data);
 export const getPayments = (unitId?: string) =>
   api.get('/payments', { params: unitId ? { unit_id: unitId } : {} });
 export const createPayment = (data: any) => api.post('/payments', data);
+export const updatePayment = (paymentId: string, data: {
+  amount?: number;
+  payment_date?: string;
+  method?: string;
+  reference?: string;
+  notes?: string;
+  reason: string; // Required for audit
+}) => api.put(`/payments/${paymentId}`, data);
 
 // Expenses (Outgoing payments to vendors)
 export const getExpenses = () => api.get('/expenses');
 export const createExpense = (data: any) => api.post('/expenses', data);
+export const updateExpense = (expenseId: string, data: {
+  vendor_name?: string;
+  amount?: number;
+  payment_date?: string;
+  description?: string;
+  method?: string;
+  reference?: string;
+  invoice_number?: string;
+  reason: string; // Required for audit
+}) => api.put(`/expenses/${expenseId}`, data);
 
 // Adjustments (Post-posting corrections)
 export const getAdjustments = (unitId?: string) =>
