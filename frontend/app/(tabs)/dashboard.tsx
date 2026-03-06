@@ -106,8 +106,21 @@ export default function DashboardScreen() {
           </View>
         </View>
 
-        {isAdmin && adminData ? (
+        {/* Show admin dashboard view for ALL users (read-only for owners) */}
+        {adminData ? (
           <View style={styles.content}>
+            {/* Show role-specific notice for non-admins */}
+            {!isAdmin && (
+              <Card style={styles.infoNotice}>
+                <View style={styles.infoNoticeContent}>
+                  <Ionicons name="information-circle" size={20} color="#2563eb" />
+                  <Text style={styles.infoNoticeText}>
+                    Viewing HOA overview (read-only access)
+                  </Text>
+                </View>
+              </Card>
+            )}
+            
             <View style={styles.statsGrid}>
               <Card style={styles.statCard}>
                 <View style={[styles.statIcon, { backgroundColor: '#dbeafe' }]}>
