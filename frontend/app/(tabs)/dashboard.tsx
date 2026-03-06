@@ -51,12 +51,18 @@ export default function DashboardScreen() {
 
   const fetchData = useCallback(async () => {
     try {
-      if (isAdmin) {
-        const response = await getAdminDashboard();
-        setAdminData(response.data);
-      } else {
-        const response = await getOwnerDashboard();
-        setOwnerData(response.data);
+      // Fetch admin dashboard for all users (now accessible to everyone for transparency)
+      const response = await getAdminDashboard();
+      setAdminData(response.data);
+      
+      // Also fetch owner-specific data if user is an owner with assigned units
+      if (!isAdmin && user?.unit_ids?.length) {
+        try {
+          const ownerResponse = await getOwnerDashboard();
+          setOwnerData(ownerResponse.data);
+        } catch (e) {
+          // Owner dashboard is optional, don't fail if it errors
+        }
       }
     } catch (error) {
       console.error('Dashboard error:', error);
@@ -64,7 +70,7 @@ export default function DashboardScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [isAdmin]);
+  }, [isAdmin, user]);
 
   useEffect(() => {
     fetchData();
