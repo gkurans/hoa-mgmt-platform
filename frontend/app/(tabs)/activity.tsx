@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
   Modal,
   Pressable,
+  TextInput,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -26,6 +28,7 @@ interface AuditLog {
   performed_by_name: string;
   timestamp: string;
   description: string;
+  reason?: string;
 }
 
 interface Unit {
@@ -42,7 +45,10 @@ const ENTITY_TYPE_LABELS: Record<string, string> = {
   bill_input: 'Annual Setup',
   unit: 'Unit',
   owner: 'Owner',
+  user_profile: 'Profile',
   system: 'System',
+  document: 'Document',
+  folder: 'Folder',
 };
 
 const ACTION_LABELS: Record<string, string> = {
@@ -53,6 +59,9 @@ const ACTION_LABELS: Record<string, string> = {
   post: 'Posted',
   assign_owner: 'Owner Assigned',
   execute: 'Executed',
+  upload: 'Uploaded',
+  move: 'Moved',
+  replace: 'Replaced',
 };
 
 const getIconForType = (type: string): string => {
@@ -64,7 +73,10 @@ const getIconForType = (type: string): string => {
     case 'bill_input': return 'calculator';
     case 'unit': return 'business';
     case 'owner': return 'person';
+    case 'user_profile': return 'person-circle';
     case 'system': return 'cog';
+    case 'document': return 'document';
+    case 'folder': return 'folder';
     default: return 'document';
   }
 };
@@ -76,30 +88,75 @@ const getColorForAction = (action: string): string => {
     case 'approve': return '#2563eb';
     case 'post': return '#7c3aed';
     case 'update': return '#d97706';
+    case 'upload': return '#16a34a';
     default: return '#64748b';
   }
 };
+
+const DATE_RANGE_OPTIONS = [
+  { label: 'All Time', value: '' },
+  { label: 'Today', value: 'today' },
+  { label: 'Last 7 Days', value: '7days' },
+  { label: 'Last 30 Days', value: '30days' },
+  { label: 'This Month', value: 'month' },
+  { label: 'This Year', value: 'year' },
+];
 
 export default function ActivityScreen() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [expandedLog, setExpandedLog] = useState<string | null>(null);
   
   // Filters
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [selectedEntityType, setSelectedEntityType] = useState<string>('');
   const [selectedUnitId, setSelectedUnitId] = useState<string>('');
-  const [activeFilters, setActiveFilters] = useState<{entityType: string; unitId: string}>({
+  const [selectedDateRange, setSelectedDateRange] = useState<string>('');
+  const [activeFilters, setActiveFilters] = useState<{
+    entityType: string;
+    unitId: string;
+    dateRange: string;
+  }>({
     entityType: '',
     unitId: '',
+    dateRange: '',
   });
+
+  const getDateRangeParams = (range: string) => {
+    const now = new Date();
+    let start_date = '';
+    
+    switch (range) {
+      case 'today':
+        start_date = new Date(now.setHours(0, 0, 0, 0)).toISOString();
+        break;
+      case '7days':
+        start_date = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+        break;
+      case '30days':
+        start_date = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+        break;
+      case 'month':
+        start_date = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+        break;
+      case 'year':
+        start_date = new Date(now.getFullYear(), 0, 1).toISOString();
+        break;
+    }
+    
+    return start_date;
+  };
 
   const fetchData = useCallback(async () => {
     try {
-      const params: any = { limit: 100 };
+      const params: any = { limit: 200 };
       if (activeFilters.entityType) params.entity_type = activeFilters.entityType;
       if (activeFilters.unitId) params.unit_id = activeFilters.unitId;
+      if (activeFilters.dateRange) {
+        params.start_date = getDateRangeParams(activeFilters.dateRange);
+      }
       
       const [logsRes, unitsRes] = await Promise.all([
         getAuditLogs(params),
@@ -126,6 +183,17 @@ export default function ActivityScreen() {
 
   const formatTimestamp = (timestamp: string) => {
     const date = new Date(timestamp);
+    return date.toLocaleString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const formatRelativeTime = (timestamp: string) => {
+    const date = new Date(timestamp);
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const hours = Math.floor(diff / (1000 * 60 * 60));
@@ -146,6 +214,7 @@ export default function ActivityScreen() {
     setActiveFilters({
       entityType: selectedEntityType,
       unitId: selectedUnitId,
+      dateRange: selectedDateRange,
     });
     setShowFilterModal(false);
   };
@@ -153,11 +222,37 @@ export default function ActivityScreen() {
   const clearFilters = () => {
     setSelectedEntityType('');
     setSelectedUnitId('');
-    setActiveFilters({ entityType: '', unitId: '' });
+    setSelectedDateRange('');
+    setActiveFilters({ entityType: '', unitId: '', dateRange: '' });
     setShowFilterModal(false);
   };
 
-  const hasActiveFilters = activeFilters.entityType || activeFilters.unitId;
+  const getActiveFilterCount = () => {
+    let count = 0;
+    if (activeFilters.entityType) count++;
+    if (activeFilters.unitId) count++;
+    if (activeFilters.dateRange) count++;
+    return count;
+  };
+
+  const hasActiveFilters = getActiveFilterCount() > 0;
+
+  const formatValue = (value: any): string => {
+    if (value === null || value === undefined) return '-';
+    if (typeof value === 'object') {
+      // Format as readable key-value pairs
+      return Object.entries(value)
+        .filter(([k, v]) => v !== null && v !== undefined && k !== '_id')
+        .map(([k, v]) => `${k}: ${typeof v === 'number' ? `₹${v.toLocaleString()}` : v}`)
+        .join(', ');
+    }
+    if (typeof value === 'number') return `₹${value.toLocaleString()}`;
+    return String(value);
+  };
+
+  const toggleExpand = (logId: string) => {
+    setExpandedLog(expandedLog === logId ? null : logId);
+  };
 
   if (loading) {
     return <LoadingSpinner message="Loading activity..." />;
@@ -179,14 +274,12 @@ export default function ActivityScreen() {
             />
             {hasActiveFilters && (
               <View style={styles.filterBadge}>
-                <Text style={styles.filterBadgeText}>
-                  {(activeFilters.entityType ? 1 : 0) + (activeFilters.unitId ? 1 : 0)}
-                </Text>
+                <Text style={styles.filterBadgeText}>{getActiveFilterCount()}</Text>
               </View>
             )}
           </TouchableOpacity>
         </View>
-        <Text style={styles.subtitle}>All financial transactions and changes</Text>
+        <Text style={styles.subtitle}>Complete audit trail of all transactions and changes</Text>
       </View>
 
       <ScrollView
@@ -205,36 +298,75 @@ export default function ActivityScreen() {
             </Text>
           </Card>
         ) : (
-          logs.map((log, index) => (
+          logs.map((log) => (
             <Card key={log.id} style={styles.logCard}>
-              <View style={styles.logHeader}>
-                <View style={[styles.logIcon, { backgroundColor: `${getColorForAction(log.action)}15` }]}>
-                  <Ionicons
-                    name={getIconForType(log.entity_type) as any}
-                    size={20}
-                    color={getColorForAction(log.action)}
-                  />
-                </View>
-                <View style={styles.logInfo}>
-                  <Text style={styles.logDescription}>{log.description}</Text>
-                  <View style={styles.logMeta}>
-                    <View style={[styles.actionBadge, { backgroundColor: `${getColorForAction(log.action)}15` }]}>
-                      <Text style={[styles.actionText, { color: getColorForAction(log.action) }]}>
-                        {ACTION_LABELS[log.action] || log.action}
+              <TouchableOpacity onPress={() => toggleExpand(log.id)} activeOpacity={0.7}>
+                <View style={styles.logHeader}>
+                  <View style={[styles.logIcon, { backgroundColor: `${getColorForAction(log.action)}15` }]}>
+                    <Ionicons
+                      name={getIconForType(log.entity_type) as any}
+                      size={20}
+                      color={getColorForAction(log.action)}
+                    />
+                  </View>
+                  <View style={styles.logInfo}>
+                    <Text style={styles.logDescription}>{log.description}</Text>
+                    <View style={styles.logMeta}>
+                      <View style={[styles.actionBadge, { backgroundColor: `${getColorForAction(log.action)}15` }]}>
+                        <Text style={[styles.actionText, { color: getColorForAction(log.action) }]}>
+                          {ACTION_LABELS[log.action] || log.action}
+                        </Text>
+                      </View>
+                      <Text style={styles.logType}>
+                        {ENTITY_TYPE_LABELS[log.entity_type] || log.entity_type}
                       </Text>
                     </View>
-                    <Text style={styles.logType}>
-                      {ENTITY_TYPE_LABELS[log.entity_type] || log.entity_type}
-                    </Text>
                   </View>
+                  <Ionicons
+                    name={expandedLog === log.id ? 'chevron-up' : 'chevron-down'}
+                    size={20}
+                    color="#94a3b8"
+                  />
                 </View>
-              </View>
+              </TouchableOpacity>
+              
+              {/* Expanded Details */}
+              {expandedLog === log.id && (
+                <View style={styles.expandedContent}>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Date & Time</Text>
+                    <Text style={styles.detailValue}>{formatTimestamp(log.timestamp)}</Text>
+                  </View>
+                  
+                  {log.old_value && Object.keys(log.old_value).length > 0 && (
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Previous Value</Text>
+                      <Text style={[styles.detailValue, styles.oldValue]}>{formatValue(log.old_value)}</Text>
+                    </View>
+                  )}
+                  
+                  {log.new_value && Object.keys(log.new_value).length > 0 && (
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>New Value</Text>
+                      <Text style={[styles.detailValue, styles.newValue]}>{formatValue(log.new_value)}</Text>
+                    </View>
+                  )}
+                  
+                  {log.reason && (
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Reason for Change</Text>
+                      <Text style={[styles.detailValue, styles.reasonValue]}>{log.reason}</Text>
+                    </View>
+                  )}
+                </View>
+              )}
+              
               <View style={styles.logFooter}>
                 <View style={styles.userInfo}>
                   <Ionicons name="person-circle-outline" size={16} color="#64748b" />
                   <Text style={styles.userName}>{log.performed_by_name}</Text>
                 </View>
-                <Text style={styles.timestamp}>{formatTimestamp(log.timestamp)}</Text>
+                <Text style={styles.timestamp}>{formatRelativeTime(log.timestamp)}</Text>
               </View>
             </Card>
           ))
@@ -258,6 +390,23 @@ export default function ActivityScreen() {
             </View>
 
             <ScrollView style={styles.modalBody}>
+              {/* Date Range Filter */}
+              <Text style={styles.filterLabel}>Date Range</Text>
+              <View style={styles.filterOptions}>
+                {DATE_RANGE_OPTIONS.map((option) => (
+                  <TouchableOpacity
+                    key={option.value}
+                    style={[styles.filterOption, selectedDateRange === option.value && styles.filterOptionActive]}
+                    onPress={() => setSelectedDateRange(option.value)}
+                  >
+                    <Text style={[styles.filterOptionText, selectedDateRange === option.value && styles.filterOptionTextActive]}>
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Transaction Type Filter */}
               <Text style={styles.filterLabel}>Transaction Type</Text>
               <View style={styles.filterOptions}>
                 <TouchableOpacity
@@ -281,6 +430,7 @@ export default function ActivityScreen() {
                 ))}
               </View>
 
+              {/* Unit Filter */}
               <Text style={styles.filterLabel}>Unit</Text>
               <View style={styles.filterOptions}>
                 <TouchableOpacity
@@ -432,6 +582,45 @@ const styles = StyleSheet.create({
   logType: {
     fontSize: 12,
     color: '#64748b',
+  },
+  expandedContent: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+  },
+  detailRow: {
+    marginBottom: 12,
+  },
+  detailLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748b',
+    marginBottom: 4,
+  },
+  detailValue: {
+    fontSize: 14,
+    color: '#1e293b',
+    lineHeight: 20,
+  },
+  oldValue: {
+    color: '#dc2626',
+    backgroundColor: '#fef2f2',
+    padding: 8,
+    borderRadius: 6,
+  },
+  newValue: {
+    color: '#16a34a',
+    backgroundColor: '#f0fdf4',
+    padding: 8,
+    borderRadius: 6,
+  },
+  reasonValue: {
+    color: '#2563eb',
+    backgroundColor: '#eff6ff',
+    padding: 8,
+    borderRadius: 6,
+    fontStyle: 'italic',
   },
   logFooter: {
     flexDirection: 'row',
