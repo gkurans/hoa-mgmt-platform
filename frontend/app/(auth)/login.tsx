@@ -102,11 +102,6 @@ export default function LoginScreen() {
                 <Text style={styles.registerLink}>Sign Up</Text>
               </TouchableOpacity>
             </View>
-
-            <View style={styles.demoContainer}>
-              <Text style={styles.demoText}>Demo Credentials:</Text>
-              <Text style={styles.demoCredentials}>admin@unitytowers.com / admin123</Text>
-            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
