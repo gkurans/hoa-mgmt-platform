@@ -57,10 +57,16 @@ export default function ProfileScreen() {
         return;
       }
 
-      await updateProfile(updates);
+      const response = await updateProfile(updates);
       
-      // Update local state - reload auth to refresh user data
-      await loadStoredAuth();
+      // Update local state with the response data
+      if (response.data) {
+        await updateUser({
+          name: response.data.name,
+          phone: response.data.phone,
+          email: response.data.email,
+        });
+      }
       
       setShowEditModal(false);
       setSuccessMessage('Owner information updated successfully.');
