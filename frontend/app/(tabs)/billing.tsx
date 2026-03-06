@@ -25,8 +25,11 @@ import {
   getCategories,
   getCharges,
   createPayment,
+  getPayments,
+  updatePayment,
   createExpense,
   getExpenses,
+  updateExpense,
   createAdjustment,
   getAdjustments,
 } from '../../src/services/api';
