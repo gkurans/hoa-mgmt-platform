@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 
 # Configuration
-BASE_URL = "https://kerala-condo-mgmt.preview.emergentagent.com/api"
+BASE_URL = "https://property-admin-62.preview.emergentagent.com/api"
 ADMIN_EMAIL = "admin@keralahoa.com"
 ADMIN_PASSWORD = "admin123"
 
