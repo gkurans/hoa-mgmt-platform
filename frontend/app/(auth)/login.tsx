@@ -176,21 +176,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  demoContainer: {
-    marginTop: 32,
-    padding: 16,
-    backgroundColor: '#f1f5f9',
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  demoText: {
-    fontSize: 14,
-    color: '#64748b',
-    marginBottom: 4,
-  },
-  demoCredentials: {
-    fontSize: 14,
-    color: '#334155',
-    fontWeight: '500',
-  },
 });
