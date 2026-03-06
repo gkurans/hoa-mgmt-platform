@@ -102,7 +102,11 @@ export const deleteFolder = (folderId: string) => api.delete(`/documents/folders
 export const getFiles = (folderId?: string) => 
   api.get('/documents/files', { params: folderId ? { folder_id: folderId } : {} });
 export const uploadFile = (formData: FormData) =>
-  api.post('/documents/files/upload', formData);
+  api.post('/documents/files/upload', formData, {
+    headers: {
+      'Content-Type': undefined, // Let browser set correct multipart boundary
+    },
+  });
 export const downloadFile = (documentId: string) =>
   api.get(`/documents/files/${documentId}/download`, { responseType: 'blob' });
 export const deleteFile = (documentId: string) => api.delete(`/documents/files/${documentId}`);
