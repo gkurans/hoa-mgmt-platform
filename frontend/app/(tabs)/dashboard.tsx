@@ -41,7 +41,7 @@ export default function DashboardScreen() {
 
   const fetchData = useCallback(async () => {
     try {
-      if (isAdmin()) {
+      if (isAdmin) {
         const response = await getAdminDashboard();
         setAdminData(response.data);
       } else {
