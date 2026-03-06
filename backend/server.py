@@ -1753,17 +1753,31 @@ async def get_audit_logs(
         
         return f"{action.title()} on {entity}"
     
+    # Helper to convert MongoDB documents to JSON-safe format
+    def make_json_safe(obj):
+        if obj is None:
+            return None
+        if isinstance(obj, dict):
+            return {k: make_json_safe(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [make_json_safe(item) for item in obj]
+        if isinstance(obj, ObjectId):
+            return str(obj)
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        return obj
+    
     result = []
     for log in logs:
         result.append(AuditLogResponse(
             id=str(log["_id"]),
             entity_type=log.get("entity_type", ""),
-            entity_id=log.get("entity_id", ""),
+            entity_id=str(log.get("entity_id", "")),
             action=log.get("action", ""),
-            old_value=log.get("old_value"),
-            new_value=log.get("new_value"),
-            performed_by=log.get("performed_by", "system"),
-            performed_by_name=user_map.get(log.get("performed_by"), "System"),
+            old_value=make_json_safe(log.get("old_value")),
+            new_value=make_json_safe(log.get("new_value")),
+            performed_by=str(log.get("performed_by", "system")),
+            performed_by_name=user_map.get(str(log.get("performed_by")), "System"),
             timestamp=log.get("timestamp", datetime.utcnow()),
             description=get_description(log)
         ))
