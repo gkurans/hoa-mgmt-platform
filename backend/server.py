@@ -1399,6 +1399,80 @@ async def create_expense(expense_data: ExpenseCreate, user: dict = Depends(requi
         created_at=expense_doc["created_at"]
     )
 
+class ExpenseUpdate(BaseModel):
+    vendor_name: Optional[str] = None
+    amount: Optional[float] = None
+    payment_date: Optional[str] = None
+    description: Optional[str] = None
+    method: Optional[str] = None
+    reference: Optional[str] = None
+    invoice_number: Optional[str] = None
+    reason: str  # Required for any edit
+
+@api_router.put("/expenses/{expense_id}", response_model=ExpenseResponse)
+async def update_expense(expense_id: str, update_data: ExpenseUpdate, user: dict = Depends(require_admin)):
+    """Edit an expense record - requires reason for change"""
+    expense = await db.expenses.find_one({"_id": ObjectId(expense_id)})
+    if not expense:
+        raise HTTPException(status_code=404, detail="Expense not found")
+    
+    # Store old values for audit
+    old_values = {
+        "vendor_name": expense["vendor_name"],
+        "amount": expense["amount"],
+        "payment_date": expense["payment_date"],
+        "description": expense.get("description", ""),
+        "method": expense["method"],
+        "reference": expense.get("reference", ""),
+        "invoice_number": expense.get("invoice_number", "")
+    }
+    
+    update_dict = {}
+    if update_data.vendor_name is not None:
+        update_dict["vendor_name"] = update_data.vendor_name
+    if update_data.amount is not None:
+        update_dict["amount"] = update_data.amount
+    if update_data.payment_date is not None:
+        update_dict["payment_date"] = update_data.payment_date
+    if update_data.description is not None:
+        update_dict["description"] = update_data.description
+    if update_data.method is not None:
+        update_dict["method"] = update_data.method
+    if update_data.reference is not None:
+        update_dict["reference"] = update_data.reference
+    if update_data.invoice_number is not None:
+        update_dict["invoice_number"] = update_data.invoice_number
+    
+    update_dict["updated_at"] = datetime.utcnow()
+    update_dict["updated_by"] = str(user["_id"])
+    
+    await db.expenses.update_one(
+        {"_id": ObjectId(expense_id)},
+        {"$set": update_dict}
+    )
+    
+    # Log with reason
+    await log_audit("expense", expense_id, "update", old_values, update_dict, str(user["_id"]), update_data.reason)
+    
+    # Return updated expense
+    updated = await db.expenses.find_one({"_id": ObjectId(expense_id)})
+    category = await db.categories.find_one({"_id": ObjectId(updated["category_id"])})
+    
+    return ExpenseResponse(
+        id=str(updated["_id"]),
+        vendor_name=updated["vendor_name"],
+        category_id=updated["category_id"],
+        category_name=category["name"] if category else "Unknown",
+        amount=updated["amount"],
+        payment_date=updated["payment_date"],
+        description=updated.get("description", ""),
+        method=updated["method"],
+        reference=updated.get("reference", ""),
+        invoice_number=updated.get("invoice_number", ""),
+        recorded_by=user["name"],
+        created_at=updated["created_at"]
+    )
+
 # ============== ADJUSTMENTS (POST-POSTING CORRECTIONS) ==============
 
 @api_router.get("/adjustments", response_model=List[AdjustmentResponse])
