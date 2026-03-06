@@ -1817,4 +1817,57 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#fff',
   },
+  infoCard: {
+    alignItems: 'center',
+    paddingVertical: 24,
+    marginBottom: 16,
+  },
+  infoCardTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1e293b',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  infoCardText: {
+    fontSize: 14,
+    color: '#64748b',
+    textAlign: 'center',
+    lineHeight: 20,
+    paddingHorizontal: 16,
+  },
+  chargeCard: {
+    marginBottom: 12,
+  },
+  chargeHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  chargeCategory: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  chargePeriod: {
+    fontSize: 13,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  chargeAmount: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#2563eb',
+  },
+  statusBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
 });
