@@ -444,6 +444,54 @@ async def get_me(user: dict = Depends(get_current_user)):
         created_at=user["created_at"]
     )
 
+class ProfileUpdate(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+
+@api_router.put("/auth/profile", response_model=UserResponse)
+async def update_profile(profile: ProfileUpdate, user: dict = Depends(get_current_user)):
+    """Update current user's own profile - allowed for all authenticated users"""
+    update_data = {}
+    
+    if profile.name:
+        update_data["name"] = profile.name
+    if profile.phone:
+        update_data["phone"] = profile.phone
+    if profile.email and profile.email != user["email"]:
+        # Check if email is already taken
+        existing = await db.users.find_one({"email": profile.email})
+        if existing:
+            raise HTTPException(status_code=400, detail="Email already in use")
+        update_data["email"] = profile.email
+    
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    
+    # Log the profile update
+    old_values = {k: user.get(k) for k in update_data.keys()}
+    
+    await db.users.update_one(
+        {"_id": user["_id"]},
+        {"$set": update_data}
+    )
+    
+    # Create audit log
+    await log_audit("user_profile", str(user["_id"]), "update", old_values, update_data, str(user["_id"]))
+    
+    # Get updated user
+    updated_user = await db.users.find_one({"_id": user["_id"]})
+    
+    return UserResponse(
+        id=str(updated_user["_id"]),
+        email=updated_user["email"],
+        name=updated_user["name"],
+        phone=updated_user.get("phone", ""),
+        role=updated_user["role"],
+        unit_ids=updated_user.get("unit_ids", []),
+        created_at=updated_user["created_at"]
+    )
+
 # ============== UNIT ROUTES ==============
 
 @api_router.get("/units", response_model=List[UnitResponse])
