@@ -745,6 +745,58 @@ export default function BillingScreen() {
                 </Card>
               </TouchableOpacity>
             ))}
+
+            {/* Payment History */}
+            <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Payment History</Text>
+            <Text style={styles.sectionSubtitle}>Click edit to modify a payment (requires reason)</Text>
+            {payments.length === 0 ? (
+              <Card style={styles.emptyCard}>
+                <Ionicons name="card" size={48} color="#94a3b8" />
+                <Text style={styles.emptyText}>No payments recorded yet</Text>
+              </Card>
+            ) : (
+              payments.map(payment => (
+                <Card key={payment.id} style={styles.expenseCard}>
+                  <View style={styles.expenseHeader}>
+                    <View style={styles.expenseInfo}>
+                      <Text style={styles.expenseVendor}>{payment.unit_display}</Text>
+                      <Text style={styles.expenseCategory}>{payment.method.replace('_', ' ').toUpperCase()}</Text>
+                    </View>
+                    <Text style={[styles.expenseAmount, { color: '#16a34a' }]}>
+                      {formatCurrency(payment.amount)}
+                    </Text>
+                  </View>
+                  <View style={styles.expenseDetails}>
+                    <View style={styles.expenseDetailRow}>
+                      <Ionicons name="calendar" size={14} color="#64748b" />
+                      <Text style={styles.expenseDetailText}>{payment.payment_date}</Text>
+                    </View>
+                    {payment.reference && (
+                      <View style={styles.expenseDetailRow}>
+                        <Ionicons name="document" size={14} color="#64748b" />
+                        <Text style={styles.expenseDetailText}>Ref: {payment.reference}</Text>
+                      </View>
+                    )}
+                    <View style={styles.expenseDetailRow}>
+                      <Ionicons name="person" size={14} color="#64748b" />
+                      <Text style={styles.expenseDetailText}>{payment.recorded_by}</Text>
+                    </View>
+                  </View>
+                  {payment.notes && (
+                    <Text style={styles.expenseDescription}>{payment.notes}</Text>
+                  )}
+                  {isAdminUser && (
+                    <TouchableOpacity
+                      style={styles.editButton}
+                      onPress={() => openEditPaymentModal(payment)}
+                    >
+                      <Ionicons name="pencil" size={16} color="#2563eb" />
+                      <Text style={styles.editButtonText}>Edit</Text>
+                    </TouchableOpacity>
+                  )}
+                </Card>
+              ))
+            )}
           </View>
         )}
 
