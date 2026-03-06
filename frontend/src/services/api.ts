@@ -122,8 +122,9 @@ export const getFiles = (folderId?: string) =>
 export const uploadFile = (formData: FormData) =>
   api.post('/documents/files/upload', formData, {
     headers: {
-      'Content-Type': undefined, // Let browser set correct multipart boundary
+      'Content-Type': 'multipart/form-data',
     },
+    transformRequest: (data) => data, // Prevent axios from transforming FormData
   });
 export const downloadFile = (documentId: string) =>
   api.get(`/documents/files/${documentId}/download`, { responseType: 'blob' });
