@@ -528,4 +528,20 @@ const styles = StyleSheet.create({
     color: '#64748b',
     textAlign: 'center',
   },
+  infoNotice: {
+    marginBottom: 16,
+    backgroundColor: '#eff6ff',
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+  },
+  infoNoticeContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  infoNoticeText: {
+    fontSize: 14,
+    color: '#2563eb',
+    fontWeight: '500',
+  },
 });
