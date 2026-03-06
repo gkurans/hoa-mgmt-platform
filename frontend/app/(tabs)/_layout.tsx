@@ -1,10 +1,20 @@
 import React from 'react';
+import { Platform } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../src/store/authStore';
 
 export default function TabLayout() {
   const { isAdmin } = useAuthStore();
+  const insets = useSafeAreaInsets();
+  
+  // Calculate proper bottom padding for different devices
+  // Android with gesture navigation: ~48px
+  // Android with 3-button nav: ~48px  
+  // iOS with home indicator: ~34px
+  const bottomPadding = Math.max(insets.bottom, Platform.OS === 'android' ? 8 : 4);
+  const tabBarHeight = 56 + bottomPadding;
 
   return (
     <Tabs
@@ -17,8 +27,8 @@ export default function TabLayout() {
           borderTopWidth: 1,
           borderTopColor: '#e2e8f0',
           paddingTop: 4,
-          paddingBottom: 4,
-          height: 60,
+          paddingBottom: bottomPadding,
+          height: tabBarHeight,
         },
         tabBarLabelStyle: {
           fontSize: 10,
