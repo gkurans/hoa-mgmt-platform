@@ -243,7 +243,7 @@ export default function UnitsScreen() {
         {isAdminUser && (
           <TouchableOpacity
             style={styles.addButton}
-            onPress={() => activeTab === 'units' ? setShowCreateModal(true) : setShowOwnerModal(true)}
+            onPress={() => activeTab === 'units' ? setShowCreateModal(true) : openAddOwnerModal()}
           >
             <Ionicons name="add" size={24} color="#fff" />
           </TouchableOpacity>
