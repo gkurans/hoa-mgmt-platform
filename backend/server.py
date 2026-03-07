@@ -792,6 +792,8 @@ async def update_owner(owner_id: str, update_data: OwnerUpdate, user: dict = Dep
         phone=updated.get("phone", ""),
         role=updated["role"],
         unit_ids=updated.get("unit_ids", []),
+        ownership_start_date=updated.get("ownership_start_date"),
+        ownership_end_date=updated.get("ownership_end_date"),
         created_at=updated["created_at"]
     )
 
