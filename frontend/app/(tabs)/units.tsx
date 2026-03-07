@@ -417,6 +417,14 @@ export default function UnitsScreen() {
                     <Text style={styles.ownerEmail}>{owner.email}</Text>
                     {owner.phone && <Text style={styles.ownerPhone}>{owner.phone}</Text>}
                   </View>
+                  {isAdminUser && owner.role !== 'admin' && (
+                    <TouchableOpacity
+                      style={styles.editOwnerButton}
+                      onPress={() => openEditOwnerModal(owner)}
+                    >
+                      <Ionicons name="pencil" size={18} color="#2563eb" />
+                    </TouchableOpacity>
+                  )}
                   <View style={[
                     styles.roleBadge,
                     { backgroundColor: owner.role === 'admin' ? '#dbeafe' : '#f0fdf4' }
