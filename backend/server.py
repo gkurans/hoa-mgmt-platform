@@ -2988,6 +2988,16 @@ async def update_office_holder(holder_id: str, data: OfficeHolderUpdate, user: d
         owner = await db.users.find_one({"_id": ObjectId(data.owner_id), "role": "owner"})
         if not owner:
             raise HTTPException(status_code=404, detail="Owner not found")
+        
+        # Validate new owner is a current owner
+        current_date = datetime.utcnow()
+        ownership_end = owner.get("ownership_end_date")
+        if ownership_end and ownership_end < current_date:
+            raise HTTPException(
+                status_code=400, 
+                detail="This owner is no longer a current owner and cannot hold an officer role. Please assign a new eligible owner."
+            )
+        
         update_fields["owner_id"] = data.owner_id
     
     if data.start_date:
@@ -3001,6 +3011,65 @@ async def update_office_holder(holder_id: str, data: OfficeHolderUpdate, user: d
         await log_audit("office_holder", holder_id, "update", old_data, update_fields, str(user["_id"]))
     
     return {"message": "Office holder updated successfully"}
+
+# End officer term and appoint new one (for mid-year replacements)
+@api_router.post("/board/office-holders/{holder_id}/replace")
+async def replace_office_holder(holder_id: str, new_owner_id: str, user: dict = Depends(require_admin)):
+    """Replace an existing officer with a new one (ends current term and creates new)"""
+    holder = await db.office_holders.find_one({"_id": ObjectId(holder_id)})
+    if not holder:
+        raise HTTPException(status_code=404, detail="Office holder record not found")
+    
+    # Validate new owner
+    new_owner = await db.users.find_one({"_id": ObjectId(new_owner_id), "role": "owner"})
+    if not new_owner:
+        raise HTTPException(status_code=404, detail="New owner not found")
+    
+    # Validate new owner is current
+    current_date = datetime.utcnow()
+    ownership_end = new_owner.get("ownership_end_date")
+    if ownership_end and ownership_end < current_date:
+        raise HTTPException(
+            status_code=400, 
+            detail="This owner is no longer a current owner and cannot hold an officer role."
+        )
+    
+    today = current_date.strftime("%Y-%m-%d")
+    year = holder["year"]
+    
+    # End current holder's term (yesterday)
+    yesterday = (current_date - timedelta(days=1)).strftime("%Y-%m-%d")
+    await db.office_holders.update_one(
+        {"_id": ObjectId(holder_id)},
+        {"$set": {"end_date": yesterday}}
+    )
+    
+    # Create new holder starting today
+    new_holder_doc = {
+        "role": holder["role"],
+        "owner_id": new_owner_id,
+        "year": year,
+        "start_date": today,
+        "end_date": f"{year}-12-31",
+        "appointed_at": datetime.utcnow(),
+        "appointed_by": str(user["_id"])
+    }
+    
+    result = await db.office_holders.insert_one(new_holder_doc)
+    
+    old_owner = await db.users.find_one({"_id": ObjectId(holder["owner_id"])})
+    old_owner_name = old_owner["name"] if old_owner else "Unknown"
+    
+    await log_audit("office_holder", str(result.inserted_id), "replace",
+                   {"previous_holder": old_owner_name, "role": holder["role"]},
+                   {"new_holder": new_owner["name"], "year": year},
+                   str(user["_id"]))
+    
+    return {
+        "message": f"{holder['role'].capitalize()} replaced successfully",
+        "old_holder_id": holder_id,
+        "new_holder_id": str(result.inserted_id)
+    }
 
 # Delete office holder (Admin only)
 @api_router.delete("/board/office-holders/{holder_id}")
