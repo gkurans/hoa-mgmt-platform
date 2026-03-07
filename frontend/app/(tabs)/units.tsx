@@ -232,6 +232,13 @@ export default function UnitsScreen() {
         email: editOwner.email,
         phone: editOwner.phone || undefined,
       };
+      // Add ownership dates if provided
+      if (editOwner.ownership_start_date) {
+        updateData.ownership_start_date = new Date(editOwner.ownership_start_date).toISOString();
+      }
+      if (editOwner.ownership_end_date) {
+        updateData.ownership_end_date = new Date(editOwner.ownership_end_date).toISOString();
+      }
       await updateOwner(selectedOwner.id, updateData);
       Alert.alert('Success', 'Owner updated successfully');
       setShowEditOwnerModal(false);
