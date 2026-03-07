@@ -103,6 +103,8 @@ class UnitResponse(BaseModel):
     status: str
     primary_owner_id: Optional[str] = None
     primary_owner_name: Optional[str] = None
+    owner_ids: List[str] = []
+    owner_names: List[str] = []
     opening_balance: float = 0.0
     current_balance: float = 0.0
     created_at: datetime
