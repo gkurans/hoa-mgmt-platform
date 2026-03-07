@@ -1253,6 +1253,25 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#64748b',
   },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  confirmButton: {
+    backgroundColor: '#2563eb',
+  },
+  confirmButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
   submitButton: {
     flex: 1,
     paddingVertical: 14,
