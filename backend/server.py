@@ -124,11 +124,14 @@ class OwnerCreate(BaseModel):
     name: str
     phone: str = ""
     password: str = ""  # If empty, generate a random one
+    ownership_start_date: Optional[datetime] = None  # When ownership began
 
 class OwnerUpdate(BaseModel):
     email: Optional[EmailStr] = None
     name: Optional[str] = None
     phone: Optional[str] = None
+    ownership_start_date: Optional[datetime] = None
+    ownership_end_date: Optional[datetime] = None
 
 # Owner Assignment
 class OwnerAssignment(BaseModel):
