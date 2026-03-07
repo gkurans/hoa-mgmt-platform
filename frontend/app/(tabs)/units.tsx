@@ -676,6 +676,54 @@ export default function UnitsScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Edit Owner Modal */}
+      <Modal
+        visible={showEditOwnerModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowEditOwnerModal(false)}
+      >
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Edit Owner</Text>
+              <TouchableOpacity onPress={() => setShowEditOwnerModal(false)}>
+                <Ionicons name="close" size={24} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+            <Input
+              label="Full Name *"
+              value={editOwner.name}
+              onChangeText={(text) => setEditOwner({ ...editOwner, name: text })}
+              placeholder="e.g., John Smith"
+            />
+            <Input
+              label="Email *"
+              value={editOwner.email}
+              onChangeText={(text) => setEditOwner({ ...editOwner, email: text })}
+              placeholder="e.g., john@email.com"
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+            <Input
+              label="Phone Number"
+              value={editOwner.phone}
+              onChangeText={(text) => setEditOwner({ ...editOwner, phone: text })}
+              placeholder="e.g., +91 9876543210"
+              keyboardType="phone-pad"
+            />
+            <Button
+              title="Save Changes"
+              onPress={handleEditOwner}
+              style={styles.createButton}
+            />
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
