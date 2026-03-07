@@ -52,6 +52,8 @@ export default function UnitsScreen() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showOwnerModal, setShowOwnerModal] = useState(false);
+  const [showEditOwnerModal, setShowEditOwnerModal] = useState(false);
+  const [selectedOwner, setSelectedOwner] = useState<Owner | null>(null);
   const [activeTab, setActiveTab] = useState<'units' | 'owners'>('units');
   
   // Check if user owns a specific unit
