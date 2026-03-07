@@ -2673,9 +2673,6 @@ async def get_breadcrumb(folder_id: str, user: dict = Depends(get_current_user))
 async def health_check():
     return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
 
-# Include the router in the main app
-app.include_router(api_router)
-
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
