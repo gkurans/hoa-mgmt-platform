@@ -2906,10 +2906,26 @@ async def create_office_holder(data: OfficeHolderCreate, user: dict = Depends(re
     if not owner:
         raise HTTPException(status_code=404, detail="Owner not found")
     
-    # Check if role already filled for this year
-    existing = await db.office_holders.find_one({"role": data.role, "year": data.year})
+    # Validate owner is a current owner (Issue 4)
+    current_date = datetime.utcnow()
+    ownership_end = owner.get("ownership_end_date")
+    if ownership_end and ownership_end < current_date:
+        raise HTTPException(
+            status_code=400, 
+            detail="This owner is no longer a current owner and cannot hold an officer role. Please assign a new eligible owner."
+        )
+    
+    # Check if role already filled for this year (Issue 5)
+    existing = await db.office_holders.find_one({
+        "role": data.role, 
+        "year": data.year,
+        "end_date": {"$gte": datetime.utcnow().isoformat()[:10]}  # Not ended yet
+    })
     if existing:
-        raise HTTPException(status_code=400, detail=f"{data.role.capitalize()} already appointed for {data.year}. Use update instead.")
+        raise HTTPException(
+            status_code=400, 
+            detail=f"{data.role.capitalize()} already appointed for {data.year}. To replace, first end the current term."
+        )
     
     holder_doc = {
         "role": data.role,
@@ -2929,6 +2945,33 @@ async def create_office_holder(data: OfficeHolderCreate, user: dict = Depends(re
                    str(user["_id"]))
     
     return {"message": f"{data.role.capitalize()} appointed successfully", "id": str(result.inserted_id)}
+
+# Get eligible owners for officer roles (current owners only)
+@api_router.get("/board/eligible-owners")
+async def get_eligible_owners(user: dict = Depends(require_admin)):
+    """Get list of owners eligible for officer roles (current owners only)"""
+    current_date = datetime.utcnow()
+    
+    # Query for current owners only
+    owners = await db.users.find({
+        "role": "owner",
+        "$or": [
+            {"ownership_end_date": None},
+            {"ownership_end_date": {"$exists": False}},
+            {"ownership_end_date": {"$gte": current_date}}
+        ]
+    }).to_list(None)
+    
+    return [
+        {
+            "id": str(o["_id"]),
+            "name": o["name"],
+            "email": o["email"],
+            "ownership_start_date": o.get("ownership_start_date").isoformat() if o.get("ownership_start_date") else None,
+            "ownership_end_date": o.get("ownership_end_date").isoformat() if o.get("ownership_end_date") else None
+        }
+        for o in owners
+    ]
 
 # Update office holder (Admin only)
 @api_router.put("/board/office-holders/{holder_id}")
