@@ -669,6 +669,7 @@ export default function UnitsScreen() {
               value={newOwner.name}
               onChangeText={(text) => setNewOwner({ ...newOwner, name: text })}
               placeholder="e.g., John Smith"
+              autoComplete="off"
             />
             <Input
               label="Email *"
@@ -677,6 +678,7 @@ export default function UnitsScreen() {
               placeholder="e.g., john@email.com"
               keyboardType="email-address"
               autoCapitalize="none"
+              autoComplete="off"
             />
             <Input
               label="Phone Number"
@@ -684,6 +686,7 @@ export default function UnitsScreen() {
               onChangeText={(text) => setNewOwner({ ...newOwner, phone: text })}
               placeholder="e.g., +91 9876543210"
               keyboardType="phone-pad"
+              autoComplete="off"
             />
             <Input
               label="Password (default: Welcome123)"
@@ -691,6 +694,7 @@ export default function UnitsScreen() {
               onChangeText={(text) => setNewOwner({ ...newOwner, password: text })}
               placeholder="Leave empty for default"
               secureTextEntry
+              autoComplete="new-password"
             />
             <Button
               title="Create Owner"
