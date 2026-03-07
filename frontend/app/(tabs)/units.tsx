@@ -40,6 +40,8 @@ interface Owner {
   email: string;
   phone: string;
   role: string;
+  ownership_start_date?: string;
+  ownership_end_date?: string;
 }
 
 export default function UnitsScreen() {
