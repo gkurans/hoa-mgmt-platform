@@ -832,6 +832,18 @@ export default function UnitsScreen() {
               placeholder="e.g., +91 9876543210"
               keyboardType="phone-pad"
             />
+            <Input
+              label="Ownership Start Date"
+              value={editOwner.ownership_start_date}
+              onChangeText={(text) => setEditOwner({ ...editOwner, ownership_start_date: text })}
+              placeholder="YYYY-MM-DD"
+            />
+            <Input
+              label="Ownership End Date (leave blank if current owner)"
+              value={editOwner.ownership_end_date}
+              onChangeText={(text) => setEditOwner({ ...editOwner, ownership_end_date: text })}
+              placeholder="YYYY-MM-DD (blank = current owner)"
+            />
             <Button
               title="Save Changes"
               onPress={handleEditOwner}
