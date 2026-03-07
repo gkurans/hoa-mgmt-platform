@@ -2515,6 +2515,87 @@ async def delete_file(document_id: str, user: dict = Depends(require_admin)):
     
     return {"message": "Document deleted successfully"}
 
+# ============== RENAME ENDPOINTS ==============
+
+class RenameRequest(BaseModel):
+    new_name: str
+
+@api_router.put("/documents/files/{document_id}/rename")
+async def rename_file(document_id: str, request: RenameRequest, user: dict = Depends(require_admin)):
+    """Rename a file - Admin only"""
+    document = await db.documents.find_one({"_id": ObjectId(document_id)})
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    old_name = document["original_filename"]
+    new_name = request.new_name.strip()
+    
+    if not new_name:
+        raise HTTPException(status_code=400, detail="New name cannot be empty")
+    
+    # Preserve the file extension if not provided in new name
+    old_ext = os.path.splitext(old_name)[1]
+    new_ext = os.path.splitext(new_name)[1]
+    if not new_ext and old_ext:
+        new_name = new_name + old_ext
+    
+    await db.documents.update_one(
+        {"_id": ObjectId(document_id)},
+        {"$set": {"original_filename": new_name}}
+    )
+    
+    await log_audit("document", document_id, "rename",
+                   {"filename": old_name},
+                   {"filename": new_name},
+                   str(user["_id"]))
+    
+    return {"message": "File renamed successfully", "new_name": new_name}
+
+@api_router.put("/documents/folders/{folder_id}/rename")
+async def rename_folder(folder_id: str, request: RenameRequest, user: dict = Depends(require_admin)):
+    """Rename a folder - Admin only"""
+    folder = await db.folders.find_one({"_id": ObjectId(folder_id)})
+    if not folder:
+        raise HTTPException(status_code=404, detail="Folder not found")
+    
+    old_name = folder["name"]
+    new_name = request.new_name.strip()
+    
+    if not new_name:
+        raise HTTPException(status_code=400, detail="New name cannot be empty")
+    
+    # Check if folder with same name exists in same parent
+    parent_id = folder.get("parent_id")
+    existing = await db.folders.find_one({
+        "name": new_name,
+        "parent_id": parent_id,
+        "_id": {"$ne": ObjectId(folder_id)}
+    })
+    if existing:
+        raise HTTPException(status_code=400, detail="A folder with this name already exists")
+    
+    # Update folder name and path
+    old_path = folder.get("path", f"/{old_name}")
+    new_path = old_path.rsplit("/", 1)[0] + "/" + new_name if "/" in old_path else f"/{new_name}"
+    
+    await db.folders.update_one(
+        {"_id": ObjectId(folder_id)},
+        {"$set": {"name": new_name, "path": new_path}}
+    )
+    
+    # Update paths of all child folders
+    await db.folders.update_many(
+        {"path": {"$regex": f"^{re.escape(old_path)}/"}},
+        [{"$set": {"path": {"$replaceOne": {"input": "$path", "find": old_path, "replacement": new_path}}}}]
+    )
+    
+    await log_audit("folder", folder_id, "rename",
+                   {"name": old_name, "path": old_path},
+                   {"name": new_name, "path": new_path},
+                   str(user["_id"]))
+    
+    return {"message": "Folder renamed successfully", "new_name": new_name, "new_path": new_path}
+
 @api_router.get("/documents/search", response_model=DocumentSearchResult)
 async def search_documents(q: str, user: dict = Depends(get_current_user)):
     """Search documents and folders by name/keyword"""
