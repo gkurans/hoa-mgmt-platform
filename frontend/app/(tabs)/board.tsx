@@ -493,13 +493,6 @@ export default function BoardScreen() {
                 </Card>
               ))
             )}
-            
-            <View style={styles.infoBox}>
-              <Ionicons name="information-circle" size={20} color="#2563eb" />
-              <Text style={styles.infoText}>
-                Committee members are derived from the owners list. Add owners in the Units section to add committee members.
-              </Text>
-            </View>
           </View>
         )}
 
