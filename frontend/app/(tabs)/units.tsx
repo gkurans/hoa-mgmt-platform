@@ -87,6 +87,13 @@ export default function UnitsScreen() {
     password: '',
   });
 
+  const [editOwner, setEditOwner] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    password: '',
+  });
+
   const fetchData = useCallback(async () => {
     try {
       const [unitsRes, ownersRes] = await Promise.all([getUnits(), getOwners()]);
