@@ -131,26 +131,40 @@ export default function UnitsScreen() {
   };
 
   const handleRemoveOwner = async (unitId: string, ownerId: string, ownerName: string) => {
-    Alert.alert(
-      'Remove Owner',
-      `Are you sure you want to remove ${ownerName} from this unit?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await removeOwnerFromUnit(unitId, ownerId);
-              Alert.alert('Success', 'Owner removed from unit');
-              fetchData();
-            } catch (error: any) {
-              Alert.alert('Error', error.response?.data?.detail || 'Failed to remove owner');
-            }
+    // Use platform-specific confirmation
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm(`Are you sure you want to remove ${ownerName} from this unit?`);
+      if (confirmed) {
+        try {
+          await removeOwnerFromUnit(unitId, ownerId);
+          Alert.alert('Success', 'Owner removed from unit');
+          fetchData();
+        } catch (error: any) {
+          Alert.alert('Error', error.response?.data?.detail || 'Failed to remove owner');
+        }
+      }
+    } else {
+      Alert.alert(
+        'Remove Owner',
+        `Are you sure you want to remove ${ownerName} from this unit?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Remove',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await removeOwnerFromUnit(unitId, ownerId);
+                Alert.alert('Success', 'Owner removed from unit');
+                fetchData();
+              } catch (error: any) {
+                Alert.alert('Error', error.response?.data?.detail || 'Failed to remove owner');
+              }
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    }
   };
 
   const handleCreateUnit = async () => {
