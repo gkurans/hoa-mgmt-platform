@@ -2684,6 +2684,345 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ============== BOARD / ASSOCIATION MEMBERS MODULE ==============
+
+class OfficeHolderCreate(BaseModel):
+    role: Literal["president", "treasurer"]
+    owner_id: str
+    year: int
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+
+class OfficeHolderUpdate(BaseModel):
+    owner_id: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+
+class DecisionCreate(BaseModel):
+    title: str
+    description: str
+    decision_date: str
+    participants: Optional[List[str]] = []
+    document_ids: Optional[List[str]] = []  # Attached document IDs
+
+class DecisionUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    decision_date: Optional[str] = None
+    participants: Optional[List[str]] = None
+    document_ids: Optional[List[str]] = None
+
+# Get current year's leadership
+@api_router.get("/board/current")
+async def get_current_leadership(user: dict = Depends(get_current_user)):
+    """Get current year's President and Treasurer"""
+    current_year = datetime.now().year
+    
+    office_holders = await db.office_holders.find({"year": current_year}).to_list(None)
+    
+    result = {"president": None, "treasurer": None, "year": current_year}
+    
+    for holder in office_holders:
+        owner = await db.users.find_one({"_id": ObjectId(holder["owner_id"])})
+        owner_name = owner["name"] if owner else "Unknown"
+        owner_email = owner["email"] if owner else ""
+        
+        holder_data = {
+            "id": str(holder["_id"]),
+            "owner_id": holder["owner_id"],
+            "owner_name": owner_name,
+            "owner_email": owner_email,
+            "year": holder["year"],
+            "start_date": holder.get("start_date", f"{current_year}-01-01"),
+            "end_date": holder.get("end_date", f"{current_year}-12-31"),
+            "appointed_at": holder.get("appointed_at", "").isoformat() if holder.get("appointed_at") else None
+        }
+        
+        if holder["role"] == "president":
+            result["president"] = holder_data
+        elif holder["role"] == "treasurer":
+            result["treasurer"] = holder_data
+    
+    return result
+
+# Get committee members (derived from owners list)
+@api_router.get("/board/committee")
+async def get_committee_members(user: dict = Depends(get_current_user)):
+    """Get all committee members (all owners are automatically committee members)"""
+    owners = await db.users.find({"role": "owner"}).to_list(None)
+    
+    members = []
+    for owner in owners:
+        # Get units assigned to this owner
+        units = await db.units.find({"owner_ids": str(owner["_id"])}).to_list(None)
+        unit_names = [u["display_name"] for u in units]
+        
+        members.append({
+            "id": str(owner["_id"]),
+            "name": owner["name"],
+            "email": owner["email"],
+            "phone": owner.get("phone", ""),
+            "units": unit_names,
+            "joined_at": owner.get("created_at", "").isoformat() if owner.get("created_at") else None
+        })
+    
+    return members
+
+# Get historical records
+@api_router.get("/board/history")
+async def get_board_history(user: dict = Depends(get_current_user)):
+    """Get historical office holder records by year (2025 onwards)"""
+    office_holders = await db.office_holders.find({"year": {"$gte": 2025}}).sort("year", -1).to_list(None)
+    
+    # Group by year
+    history = {}
+    for holder in office_holders:
+        year = holder["year"]
+        if year not in history:
+            history[year] = {"year": year, "president": None, "treasurer": None}
+        
+        owner = await db.users.find_one({"_id": ObjectId(holder["owner_id"])})
+        owner_name = owner["name"] if owner else "Unknown"
+        
+        holder_data = {
+            "id": str(holder["_id"]),
+            "owner_id": holder["owner_id"],
+            "owner_name": owner_name,
+            "start_date": holder.get("start_date"),
+            "end_date": holder.get("end_date")
+        }
+        
+        if holder["role"] == "president":
+            history[year]["president"] = holder_data
+        elif holder["role"] == "treasurer":
+            history[year]["treasurer"] = holder_data
+    
+    # Convert to list sorted by year descending
+    return list(history.values())
+
+# Set office holder (Admin only)
+@api_router.post("/board/office-holders")
+async def create_office_holder(data: OfficeHolderCreate, user: dict = Depends(require_admin)):
+    """Appoint a President or Treasurer for a year"""
+    # Verify owner exists
+    owner = await db.users.find_one({"_id": ObjectId(data.owner_id), "role": "owner"})
+    if not owner:
+        raise HTTPException(status_code=404, detail="Owner not found")
+    
+    # Check if role already filled for this year
+    existing = await db.office_holders.find_one({"role": data.role, "year": data.year})
+    if existing:
+        raise HTTPException(status_code=400, detail=f"{data.role.capitalize()} already appointed for {data.year}. Use update instead.")
+    
+    holder_doc = {
+        "role": data.role,
+        "owner_id": data.owner_id,
+        "year": data.year,
+        "start_date": data.start_date or f"{data.year}-01-01",
+        "end_date": data.end_date or f"{data.year}-12-31",
+        "appointed_at": datetime.utcnow(),
+        "appointed_by": str(user["_id"])
+    }
+    
+    result = await db.office_holders.insert_one(holder_doc)
+    
+    await log_audit("office_holder", str(result.inserted_id), "appoint",
+                   None,
+                   {"role": data.role, "owner": owner["name"], "year": data.year},
+                   str(user["_id"]))
+    
+    return {"message": f"{data.role.capitalize()} appointed successfully", "id": str(result.inserted_id)}
+
+# Update office holder (Admin only)
+@api_router.put("/board/office-holders/{holder_id}")
+async def update_office_holder(holder_id: str, data: OfficeHolderUpdate, user: dict = Depends(require_admin)):
+    """Update an office holder appointment"""
+    holder = await db.office_holders.find_one({"_id": ObjectId(holder_id)})
+    if not holder:
+        raise HTTPException(status_code=404, detail="Office holder record not found")
+    
+    old_data = {"role": holder["role"], "year": holder["year"]}
+    
+    update_fields = {}
+    if data.owner_id:
+        owner = await db.users.find_one({"_id": ObjectId(data.owner_id), "role": "owner"})
+        if not owner:
+            raise HTTPException(status_code=404, detail="Owner not found")
+        update_fields["owner_id"] = data.owner_id
+    
+    if data.start_date:
+        update_fields["start_date"] = data.start_date
+    if data.end_date:
+        update_fields["end_date"] = data.end_date
+    
+    if update_fields:
+        await db.office_holders.update_one({"_id": ObjectId(holder_id)}, {"$set": update_fields})
+        
+        await log_audit("office_holder", holder_id, "update", old_data, update_fields, str(user["_id"]))
+    
+    return {"message": "Office holder updated successfully"}
+
+# Delete office holder (Admin only)
+@api_router.delete("/board/office-holders/{holder_id}")
+async def delete_office_holder(holder_id: str, user: dict = Depends(require_admin)):
+    """Remove an office holder appointment"""
+    holder = await db.office_holders.find_one({"_id": ObjectId(holder_id)})
+    if not holder:
+        raise HTTPException(status_code=404, detail="Office holder record not found")
+    
+    await db.office_holders.delete_one({"_id": ObjectId(holder_id)})
+    
+    await log_audit("office_holder", holder_id, "delete",
+                   {"role": holder["role"], "year": holder["year"]},
+                   None, str(user["_id"]))
+    
+    return {"message": "Office holder removed successfully"}
+
+# Get all decisions
+@api_router.get("/board/decisions")
+async def get_decisions(user: dict = Depends(get_current_user)):
+    """Get all recorded decisions and resolutions"""
+    decisions = await db.decisions.find().sort("decision_date", -1).to_list(None)
+    
+    result = []
+    for decision in decisions:
+        # Get attached documents info
+        doc_ids = decision.get("document_ids", [])
+        documents = []
+        for doc_id in doc_ids:
+            doc = await db.documents.find_one({"_id": ObjectId(doc_id)})
+            if doc:
+                documents.append({
+                    "id": str(doc["_id"]),
+                    "filename": doc["original_filename"]
+                })
+        
+        result.append({
+            "id": str(decision["_id"]),
+            "title": decision["title"],
+            "description": decision["description"],
+            "decision_date": decision["decision_date"],
+            "participants": decision.get("participants", []),
+            "documents": documents,
+            "created_at": decision.get("created_at", "").isoformat() if decision.get("created_at") else None,
+            "created_by": decision.get("created_by")
+        })
+    
+    return result
+
+# Create decision (Admin only)
+@api_router.post("/board/decisions")
+async def create_decision(data: DecisionCreate, user: dict = Depends(require_admin)):
+    """Record a new decision or resolution"""
+    decision_doc = {
+        "title": data.title,
+        "description": data.description,
+        "decision_date": data.decision_date,
+        "participants": data.participants or [],
+        "document_ids": data.document_ids or [],
+        "created_at": datetime.utcnow(),
+        "created_by": str(user["_id"])
+    }
+    
+    result = await db.decisions.insert_one(decision_doc)
+    
+    await log_audit("decision", str(result.inserted_id), "create",
+                   None, {"title": data.title, "date": data.decision_date},
+                   str(user["_id"]))
+    
+    return {"message": "Decision recorded successfully", "id": str(result.inserted_id)}
+
+# Update decision (Admin only)
+@api_router.put("/board/decisions/{decision_id}")
+async def update_decision(decision_id: str, data: DecisionUpdate, user: dict = Depends(require_admin)):
+    """Update a decision record"""
+    decision = await db.decisions.find_one({"_id": ObjectId(decision_id)})
+    if not decision:
+        raise HTTPException(status_code=404, detail="Decision not found")
+    
+    update_fields = {}
+    if data.title is not None:
+        update_fields["title"] = data.title
+    if data.description is not None:
+        update_fields["description"] = data.description
+    if data.decision_date is not None:
+        update_fields["decision_date"] = data.decision_date
+    if data.participants is not None:
+        update_fields["participants"] = data.participants
+    if data.document_ids is not None:
+        update_fields["document_ids"] = data.document_ids
+    
+    if update_fields:
+        await db.decisions.update_one({"_id": ObjectId(decision_id)}, {"$set": update_fields})
+        
+        await log_audit("decision", decision_id, "update",
+                       {"title": decision["title"]}, update_fields, str(user["_id"]))
+    
+    return {"message": "Decision updated successfully"}
+
+# Delete decision (Admin only)
+@api_router.delete("/board/decisions/{decision_id}")
+async def delete_decision(decision_id: str, user: dict = Depends(require_admin)):
+    """Delete a decision record"""
+    decision = await db.decisions.find_one({"_id": ObjectId(decision_id)})
+    if not decision:
+        raise HTTPException(status_code=404, detail="Decision not found")
+    
+    await db.decisions.delete_one({"_id": ObjectId(decision_id)})
+    
+    await log_audit("decision", decision_id, "delete",
+                   {"title": decision["title"]}, None, str(user["_id"]))
+    
+    return {"message": "Decision deleted successfully"}
+
+# Role responsibilities (static content)
+@api_router.get("/board/responsibilities")
+async def get_role_responsibilities(user: dict = Depends(get_current_user)):
+    """Get role responsibilities for each position"""
+    return {
+        "president": [
+            "Lead association meetings",
+            "Represent the association in official matters",
+            "Ensure execution of community decisions",
+            "Coordinate with committee members"
+        ],
+        "treasurer": [
+            "Maintain financial records",
+            "Track association funds and expenses",
+            "Present financial updates to owners",
+            "Ensure financial transparency"
+        ],
+        "committee_member": [
+            "Participate in discussions",
+            "Vote on association matters",
+            "Support maintenance and community decisions"
+        ]
+    }
+
+# Election guidelines (static content)
+@api_router.get("/board/election-guidelines")
+async def get_election_guidelines(user: dict = Depends(get_current_user)):
+    """Get election process and guidelines"""
+    return {
+        "schedule": {
+            "frequency": "Once every year",
+            "month": "January",
+            "term_duration": "January - December of the same year"
+        },
+        "process": [
+            "Owners nominate candidates from among the committee members",
+            "Voting is conducted among owners",
+            "Selected candidates assume roles of President and Treasurer",
+            "The Admin records the final election result in the system"
+        ],
+        "rules": [
+            "Only one President can exist at a time",
+            "Only one Treasurer can exist at a time",
+            "President and Treasurer must be selected from existing owners",
+            "All owners are automatically Committee Members"
+        ]
+    }
+
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
