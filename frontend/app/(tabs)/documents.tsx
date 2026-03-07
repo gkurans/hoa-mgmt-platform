@@ -117,6 +117,9 @@ export default function DocumentsScreen() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showFileDetailModal, setShowFileDetailModal] = useState(false);
   const [selectedFile, setSelectedFile] = useState<Document | null>(null);
+  const [showRenameModal, setShowRenameModal] = useState(false);
+  const [renameTarget, setRenameTarget] = useState<{ type: 'file' | 'folder'; id: string; currentName: string } | null>(null);
+  const [newName, setNewName] = useState('');
   
   // Form state
   const [newFolderName, setNewFolderName] = useState('');
