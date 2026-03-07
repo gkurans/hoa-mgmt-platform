@@ -363,6 +363,41 @@ export default function DocumentsScreen() {
     }
   };
 
+  // Rename handlers
+  const openRenameModal = (type: 'file' | 'folder', id: string, currentName: string) => {
+    setRenameTarget({ type, id, currentName });
+    setNewName(currentName);
+    setShowRenameModal(true);
+  };
+
+  const handleRename = async () => {
+    if (!renameTarget || !newName.trim()) return;
+    
+    try {
+      if (renameTarget.type === 'file') {
+        await renameFile(renameTarget.id, newName.trim());
+      } else {
+        await renameFolder(renameTarget.id, newName.trim());
+      }
+      setShowRenameModal(false);
+      setRenameTarget(null);
+      setNewName('');
+      if (Platform.OS === 'web') {
+        alert(`${renameTarget.type === 'file' ? 'File' : 'Folder'} renamed successfully`);
+      } else {
+        Alert.alert('Success', `${renameTarget.type === 'file' ? 'File' : 'Folder'} renamed successfully`);
+      }
+      fetchData();
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.detail || 'Failed to rename';
+      if (Platform.OS === 'web') {
+        alert(errorMessage);
+      } else {
+        Alert.alert('Error', errorMessage);
+      }
+    }
+  };
+
   const handleDownloadFile = async (file: Document) => {
     try {
       if (Platform.OS === 'web') {
