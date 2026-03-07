@@ -328,22 +328,26 @@ export default function UnitsScreen() {
                     </View>
                   </View>
                   <View style={styles.unitDetails}>
-                    <View style={styles.ownerRow}>
+                    <View style={styles.ownersContainer}>
                       <Ionicons name="person" size={16} color="#64748b" />
-                      <Text style={styles.ownerName}>
-                        {unit.primary_owner_name || 'Not assigned'}
-                      </Text>
-                      {/* Edit Owner Button - only show if owner is assigned and user is admin */}
-                      {isAdminUser && unit.primary_owner_id && (
-                        <TouchableOpacity
-                          style={styles.editOwnerSmallButton}
-                          onPress={() => {
-                            const owner = owners.find(o => o.id === unit.primary_owner_id);
-                            if (owner) openEditOwnerModal(owner);
-                          }}
-                        >
-                          <Ionicons name="create-outline" size={14} color="#2563eb" />
-                        </TouchableOpacity>
+                      {unit.owner_names && unit.owner_names.length > 0 ? (
+                        <View style={styles.ownersList}>
+                          {unit.owner_names.map((name, idx) => (
+                            <View key={idx} style={styles.ownerTag}>
+                              <Text style={styles.ownerTagText}>{name}</Text>
+                              {isAdminUser && unit.owner_ids && (
+                                <TouchableOpacity
+                                  onPress={() => handleRemoveOwner(unit.id, unit.owner_ids[idx], name)}
+                                  style={styles.removeOwnerBtn}
+                                >
+                                  <Ionicons name="close-circle" size={16} color="#dc2626" />
+                                </TouchableOpacity>
+                              )}
+                            </View>
+                          ))}
+                        </View>
+                      ) : (
+                        <Text style={styles.ownerName}>Not assigned</Text>
                       )}
                     </View>
                     {/* Show edit/assign buttons only for admins OR for owners of this unit */}
@@ -364,7 +368,7 @@ export default function UnitsScreen() {
                             }}
                           >
                             <Text style={styles.assignButtonText}>
-                              {unit.primary_owner_name ? 'Change' : 'Assign'}
+                              {unit.owner_names && unit.owner_names.length > 0 ? 'Add Owner' : 'Assign'}
                             </Text>
                           </TouchableOpacity>
                         )}
@@ -401,22 +405,26 @@ export default function UnitsScreen() {
                     </View>
                   </View>
                   <View style={styles.unitDetails}>
-                    <View style={styles.ownerRow}>
+                    <View style={styles.ownersContainer}>
                       <Ionicons name="person" size={16} color="#64748b" />
-                      <Text style={styles.ownerName}>
-                        {unit.primary_owner_name || 'Not assigned'}
-                      </Text>
-                      {/* Edit Owner Button - only show if owner is assigned and user is admin */}
-                      {isAdminUser && unit.primary_owner_id && (
-                        <TouchableOpacity
-                          style={styles.editOwnerSmallButton}
-                          onPress={() => {
-                            const owner = owners.find(o => o.id === unit.primary_owner_id);
-                            if (owner) openEditOwnerModal(owner);
-                          }}
-                        >
-                          <Ionicons name="create-outline" size={14} color="#2563eb" />
-                        </TouchableOpacity>
+                      {unit.owner_names && unit.owner_names.length > 0 ? (
+                        <View style={styles.ownersList}>
+                          {unit.owner_names.map((name, idx) => (
+                            <View key={idx} style={styles.ownerTag}>
+                              <Text style={styles.ownerTagText}>{name}</Text>
+                              {isAdminUser && unit.owner_ids && (
+                                <TouchableOpacity
+                                  onPress={() => handleRemoveOwner(unit.id, unit.owner_ids[idx], name)}
+                                  style={styles.removeOwnerBtn}
+                                >
+                                  <Ionicons name="close-circle" size={16} color="#dc2626" />
+                                </TouchableOpacity>
+                              )}
+                            </View>
+                          ))}
+                        </View>
+                      ) : (
+                        <Text style={styles.ownerName}>Not assigned</Text>
                       )}
                     </View>
                     {/* Show edit/assign buttons only for admins OR for owners of this unit */}
@@ -437,7 +445,7 @@ export default function UnitsScreen() {
                             }}
                           >
                             <Text style={styles.assignButtonText}>
-                              {unit.primary_owner_name ? 'Change' : 'Assign'}
+                              {unit.owner_names && unit.owner_names.length > 0 ? 'Add Owner' : 'Assign'}
                             </Text>
                           </TouchableOpacity>
                         )}
