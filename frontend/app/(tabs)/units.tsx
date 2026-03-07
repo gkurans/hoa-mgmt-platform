@@ -89,6 +89,7 @@ export default function UnitsScreen() {
     email: '',
     phone: '',
     password: '',
+    ownership_start_date: '',
   });
 
   const [editOwner, setEditOwner] = useState({
@@ -96,6 +97,8 @@ export default function UnitsScreen() {
     email: '',
     phone: '',
     password: '',
+    ownership_start_date: '',
+    ownership_end_date: '',
   });
 
   const fetchData = useCallback(async () => {
