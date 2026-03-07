@@ -926,12 +926,66 @@ export default function DocumentsScreen() {
               </Pressable>
               {isAdmin && (
                 <Pressable
+                  style={styles.renameModalButton}
+                  onPress={() => {
+                    if (selectedFile) {
+                      setShowFileDetailModal(false);
+                      openRenameModal('file', selectedFile.id, selectedFile.original_filename);
+                    }
+                  }}
+                >
+                  <Ionicons name="pencil" size={18} color="#fff" />
+                </Pressable>
+              )}
+              {isAdmin && (
+                <Pressable
                   style={styles.deleteButton}
                   onPress={() => selectedFile && handleDeleteFile(selectedFile)}
                 >
                   <Ionicons name="trash" size={18} color="#fff" />
                 </Pressable>
               )}
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Rename Modal */}
+      <Modal
+        visible={showRenameModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowRenameModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Rename {renameTarget?.type === 'file' ? 'File' : 'Folder'}</Text>
+              <TouchableOpacity onPress={() => setShowRenameModal(false)}>
+                <Ionicons name="close" size={24} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.inputLabel}>New Name</Text>
+            <TextInput
+              style={styles.input}
+              value={newName}
+              onChangeText={setNewName}
+              placeholder="Enter new name"
+              autoFocus
+            />
+            <View style={styles.modalButtons}>
+              <Pressable
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setShowRenameModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.modalButton, styles.confirmButton]}
+                onPress={handleRename}
+              >
+                <Text style={styles.confirmButtonText}>Rename</Text>
+              </Pressable>
             </View>
           </View>
         </View>
