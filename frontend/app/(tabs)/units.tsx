@@ -518,12 +518,28 @@ export default function UnitsScreen() {
             <Text style={styles.modalSubtitle}>
               Select an owner for {selectedUnit?.display_name}
             </Text>
+            
+            {/* Show currently assigned owners */}
+            {selectedUnit?.owner_names && selectedUnit.owner_names.length > 0 && (
+              <View style={styles.currentOwnersSection}>
+                <Text style={styles.currentOwnersLabel}>Currently Assigned:</Text>
+                <View style={styles.currentOwnersList}>
+                  {selectedUnit.owner_names.map((name, idx) => (
+                    <View key={idx} style={styles.currentOwnerTag}>
+                      <Text style={styles.currentOwnerText}>{name}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+            
+            <Text style={styles.availableOwnersLabel}>Available Owners:</Text>
             <ScrollView style={styles.ownerList}>
-              {owners.filter(o => o.role === 'owner').map(owner => (
+              {owners.filter(o => o.role === 'owner' && !selectedUnit?.owner_ids?.includes(o.id)).map(owner => (
                 <TouchableOpacity
                   key={owner.id}
                   style={styles.ownerItem}
-                  onPress={() => handleAssignOwner(owner.id)}
+                  onPress={() => handleAssignOwner(owner.id, selectedUnit?.owner_ids?.length ? 'joint' : 'primary')}
                 >
                   <View style={styles.ownerItemAvatar}>
                     <Ionicons name="person" size={24} color="#2563eb" />
@@ -532,9 +548,12 @@ export default function UnitsScreen() {
                     <Text style={styles.ownerItemName}>{owner.name}</Text>
                     <Text style={styles.ownerItemEmail}>{owner.email}</Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={20} color="#94a3b8" />
+                  <Ionicons name="add-circle" size={24} color="#16a34a" />
                 </TouchableOpacity>
               ))}
+              {owners.filter(o => o.role === 'owner' && !selectedUnit?.owner_ids?.includes(o.id)).length === 0 && (
+                <Text style={styles.noOwnersText}>All owners are already assigned to this unit</Text>
+              )}
             </ScrollView>
           </View>
         </View>
