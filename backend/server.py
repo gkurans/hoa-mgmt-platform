@@ -518,6 +518,17 @@ async def get_units(user: dict = Depends(get_current_user)):
             if owner:
                 owner_name = owner["name"]
         
+        # Get all owner IDs and names
+        owner_ids = unit.get("owner_ids", [])
+        owner_names = []
+        for oid in owner_ids:
+            try:
+                o = await db.users.find_one({"_id": ObjectId(oid)})
+                if o:
+                    owner_names.append(o["name"])
+            except:
+                pass
+        
         result.append(UnitResponse(
             id=str(unit["_id"]),
             unit_id=unit["unit_id"],
@@ -526,6 +537,8 @@ async def get_units(user: dict = Depends(get_current_user)):
             status=unit["status"],
             primary_owner_id=unit.get("primary_owner_id"),
             primary_owner_name=owner_name,
+            owner_ids=owner_ids,
+            owner_names=owner_names,
             opening_balance=unit.get("opening_balance", 0.0),
             current_balance=unit.get("current_balance", 0.0),
             created_at=unit["created_at"]
@@ -544,6 +557,17 @@ async def get_unit(unit_id: str, user: dict = Depends(get_current_user)):
         if owner:
             owner_name = owner["name"]
     
+    # Get all owner IDs and names
+    owner_ids = unit.get("owner_ids", [])
+    owner_names = []
+    for oid in owner_ids:
+        try:
+            o = await db.users.find_one({"_id": ObjectId(oid)})
+            if o:
+                owner_names.append(o["name"])
+        except:
+            pass
+    
     return UnitResponse(
         id=str(unit["_id"]),
         unit_id=unit["unit_id"],
@@ -552,6 +576,8 @@ async def get_unit(unit_id: str, user: dict = Depends(get_current_user)):
         status=unit["status"],
         primary_owner_id=unit.get("primary_owner_id"),
         primary_owner_name=owner_name,
+        owner_ids=owner_ids,
+        owner_names=owner_names,
         opening_balance=unit.get("opening_balance", 0.0),
         current_balance=unit.get("current_balance", 0.0),
         created_at=unit["created_at"]
