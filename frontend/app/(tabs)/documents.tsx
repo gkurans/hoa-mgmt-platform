@@ -26,9 +26,11 @@ import {
   getFolder,
   createFolder,
   deleteFolder,
+  renameFolder,
   getFiles,
   uploadFile,
   deleteFile,
+  renameFile,
   searchDocuments,
   getBreadcrumb,
 } from '../../src/services/api';
