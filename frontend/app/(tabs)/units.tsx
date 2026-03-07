@@ -249,13 +249,16 @@ export default function UnitsScreen() {
       email: owner.email,
       phone: owner.phone || '',
       password: '',
+      ownership_start_date: owner.ownership_start_date ? owner.ownership_start_date.split('T')[0] : '',
+      ownership_end_date: owner.ownership_end_date ? owner.ownership_end_date.split('T')[0] : '',
     });
     setShowEditOwnerModal(true);
   };
 
   const openAddOwnerModal = () => {
     // Reset the form to blank values
-    setNewOwner({ name: '', email: '', phone: '', password: '' });
+    const today = new Date().toISOString().split('T')[0];
+    setNewOwner({ name: '', email: '', phone: '', password: '', ownership_start_date: today });
     setShowOwnerModal(true);
   };
 
