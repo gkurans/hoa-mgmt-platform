@@ -308,6 +308,18 @@ export default function UnitsScreen() {
                       <Text style={styles.ownerName}>
                         {unit.primary_owner_name || 'Not assigned'}
                       </Text>
+                      {/* Edit Owner Button - only show if owner is assigned and user is admin */}
+                      {isAdminUser && unit.primary_owner_id && (
+                        <TouchableOpacity
+                          style={styles.editOwnerSmallButton}
+                          onPress={() => {
+                            const owner = owners.find(o => o.id === unit.primary_owner_id);
+                            if (owner) openEditOwnerModal(owner);
+                          }}
+                        >
+                          <Ionicons name="create-outline" size={14} color="#2563eb" />
+                        </TouchableOpacity>
+                      )}
                     </View>
                     {/* Show edit/assign buttons only for admins OR for owners of this unit */}
                     {(isAdminUser || userOwnsUnit(unit)) && (
@@ -369,6 +381,18 @@ export default function UnitsScreen() {
                       <Text style={styles.ownerName}>
                         {unit.primary_owner_name || 'Not assigned'}
                       </Text>
+                      {/* Edit Owner Button - only show if owner is assigned and user is admin */}
+                      {isAdminUser && unit.primary_owner_id && (
+                        <TouchableOpacity
+                          style={styles.editOwnerSmallButton}
+                          onPress={() => {
+                            const owner = owners.find(o => o.id === unit.primary_owner_id);
+                            if (owner) openEditOwnerModal(owner);
+                          }}
+                        >
+                          <Ionicons name="create-outline" size={14} color="#2563eb" />
+                        </TouchableOpacity>
+                      )}
                     </View>
                     {/* Show edit/assign buttons only for admins OR for owners of this unit */}
                     {(isAdminUser || userOwnsUnit(unit)) && (
