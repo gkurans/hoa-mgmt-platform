@@ -1347,8 +1347,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   renameButton: {
-    padding: 8,
+    padding: 12,
     marginRight: 8,
+    backgroundColor: '#eff6ff',
+    borderRadius: 8,
   },
   renameModalButton: {
     paddingVertical: 14,
