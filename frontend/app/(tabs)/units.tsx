@@ -911,6 +911,35 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#64748b',
   },
+  ownersContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  ownersList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    flex: 1,
+  },
+  ownerTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#eff6ff',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    gap: 4,
+  },
+  ownerTagText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#2563eb',
+  },
+  removeOwnerBtn: {
+    padding: 2,
+  },
   actionButtons: {
     flexDirection: 'row',
     alignItems: 'center',
