@@ -727,6 +727,8 @@ async def get_owners(user: dict = Depends(get_current_user)):
             phone=u.get("phone", ""),
             role=u["role"],
             unit_ids=u.get("unit_ids", []),
+            ownership_start_date=u.get("ownership_start_date"),
+            ownership_end_date=u.get("ownership_end_date"),
             created_at=u["created_at"]
         ) for u in users
     ]
@@ -740,6 +742,9 @@ async def create_owner(owner_data: OwnerCreate, user: dict = Depends(require_adm
     # Generate password if not provided
     password = owner_data.password if owner_data.password else "Welcome123"
     
+    # Set ownership start date - default to now if not provided
+    ownership_start = owner_data.ownership_start_date if owner_data.ownership_start_date else datetime.utcnow()
+    
     user_doc = {
         "email": owner_data.email,
         "password": hash_password(password),
@@ -747,6 +752,8 @@ async def create_owner(owner_data: OwnerCreate, user: dict = Depends(require_adm
         "phone": owner_data.phone,
         "role": "owner",
         "unit_ids": [],
+        "ownership_start_date": ownership_start,
+        "ownership_end_date": None,
         "created_at": datetime.utcnow()
     }
     result = await db.users.insert_one(user_doc)
@@ -760,6 +767,8 @@ async def create_owner(owner_data: OwnerCreate, user: dict = Depends(require_adm
         phone=owner_data.phone,
         role="owner",
         unit_ids=[],
+        ownership_start_date=ownership_start,
+        ownership_end_date=None,
         created_at=user_doc["created_at"]
     )
 
