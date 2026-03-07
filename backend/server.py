@@ -651,11 +651,20 @@ async def assign_owner(unit_id: str, assignment: OwnerAssignment, user: dict = D
     if not owner:
         raise HTTPException(status_code=404, detail="Owner not found")
     
-    # Update unit
+    # Update unit - set primary owner and add to owner_ids array
     if assignment.role == "primary":
         await db.units.update_one(
             {"_id": ObjectId(unit_id)},
-            {"$set": {"primary_owner_id": assignment.owner_id}}
+            {
+                "$set": {"primary_owner_id": assignment.owner_id},
+                "$addToSet": {"owner_ids": assignment.owner_id}
+            }
+        )
+    else:
+        # Joint owner - just add to owner_ids array
+        await db.units.update_one(
+            {"_id": ObjectId(unit_id)},
+            {"$addToSet": {"owner_ids": assignment.owner_id}}
         )
     
     # Update owner's unit_ids
@@ -665,9 +674,39 @@ async def assign_owner(unit_id: str, assignment: OwnerAssignment, user: dict = D
             {"$addToSet": {"unit_ids": unit_id}}
         )
     
-    await log_audit("unit", unit_id, "assign_owner", None, {"owner_id": assignment.owner_id}, str(user["_id"]))
+    await log_audit("unit", unit_id, "assign_owner", None, {"owner_id": assignment.owner_id, "role": assignment.role}, str(user["_id"]))
     
     return {"message": "Owner assigned successfully"}
+
+# Remove owner from unit
+@api_router.delete("/units/{unit_id}/remove-owner/{owner_id}")
+async def remove_owner_from_unit(unit_id: str, owner_id: str, user: dict = Depends(require_admin)):
+    unit = await db.units.find_one({"_id": ObjectId(unit_id)})
+    if not unit:
+        raise HTTPException(status_code=404, detail="Unit not found")
+    
+    # Remove from owner_ids array
+    await db.units.update_one(
+        {"_id": ObjectId(unit_id)},
+        {"$pull": {"owner_ids": owner_id}}
+    )
+    
+    # If this was the primary owner, clear primary_owner_id
+    if unit.get("primary_owner_id") == owner_id:
+        await db.units.update_one(
+            {"_id": ObjectId(unit_id)},
+            {"$set": {"primary_owner_id": None}}
+        )
+    
+    # Remove unit from owner's unit_ids
+    await db.users.update_one(
+        {"_id": ObjectId(owner_id)},
+        {"$pull": {"unit_ids": unit_id}}
+    )
+    
+    await log_audit("unit", unit_id, "remove_owner", {"owner_id": owner_id}, None, str(user["_id"]))
+    
+    return {"message": "Owner removed from unit successfully"}
 
 # ============== OWNER ROUTES ==============
 
