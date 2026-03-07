@@ -118,16 +118,39 @@ export default function UnitsScreen() {
     fetchData();
   };
 
-  const handleAssignOwner = async (ownerId: string) => {
+  const handleAssignOwner = async (ownerId: string, role: string = 'primary') => {
     if (!selectedUnit) return;
     try {
-      await assignOwner(selectedUnit.id, ownerId);
+      await assignOwner(selectedUnit.id, ownerId, role);
       Alert.alert('Success', 'Owner assigned successfully');
       setShowAssignModal(false);
       fetchData();
     } catch (error: any) {
       Alert.alert('Error', error.response?.data?.detail || 'Failed to assign owner');
     }
+  };
+
+  const handleRemoveOwner = async (unitId: string, ownerId: string, ownerName: string) => {
+    Alert.alert(
+      'Remove Owner',
+      `Are you sure you want to remove ${ownerName} from this unit?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await removeOwnerFromUnit(unitId, ownerId);
+              Alert.alert('Success', 'Owner removed from unit');
+              fetchData();
+            } catch (error: any) {
+              Alert.alert('Error', error.response?.data?.detail || 'Failed to remove owner');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleCreateUnit = async () => {
