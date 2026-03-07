@@ -661,11 +661,9 @@ async def get_owners(user: dict = Depends(get_current_user)):
 
 @api_router.post("/owners", response_model=UserResponse)
 async def create_owner(owner_data: OwnerCreate, user: dict = Depends(require_admin)):
-    """Admin creates a new owner account"""
-    # Check if email exists
-    existing = await db.users.find_one({"email": owner_data.email})
-    if existing:
-        raise HTTPException(status_code=400, detail="Email already registered")
+    """Admin creates a new owner account - allows duplicate emails for families sharing one email"""
+    # Note: We allow duplicate emails to support families/couples sharing a single email
+    # Each owner remains a separate individual record
     
     # Generate password if not provided
     password = owner_data.password if owner_data.password else "Welcome123"
