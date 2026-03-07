@@ -117,6 +117,8 @@ export const createFolder = (data: { name: string; parent_id?: string; descripti
 export const updateFolder = (folderId: string, data: { name?: string; description?: string }) =>
   api.put(`/documents/folders/${folderId}`, data);
 export const deleteFolder = (folderId: string) => api.delete(`/documents/folders/${folderId}`);
+export const renameFolder = (folderId: string, newName: string) =>
+  api.put(`/documents/folders/${folderId}/rename`, { new_name: newName });
 
 export const getFiles = (folderId?: string) => 
   api.get('/documents/files', { params: folderId ? { folder_id: folderId } : {} });
@@ -139,6 +141,8 @@ export const uploadFile = (formData: FormData) => {
 export const downloadFile = (documentId: string) =>
   api.get(`/documents/files/${documentId}/download`, { responseType: 'blob' });
 export const deleteFile = (documentId: string) => api.delete(`/documents/files/${documentId}`);
+export const renameFile = (documentId: string, newName: string) =>
+  api.put(`/documents/files/${documentId}/rename`, { new_name: newName });
 
 export const searchDocuments = (query: string) => api.get('/documents/search', { params: { q: query } });
 export const getBreadcrumb = (folderId: string) => api.get(`/documents/breadcrumb/${folderId}`);
