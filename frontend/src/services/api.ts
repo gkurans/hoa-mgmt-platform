@@ -24,8 +24,10 @@ export const getUnits = () => api.get('/units');
 export const getUnit = (id: string) => api.get(`/units/${id}`);
 export const createUnit = (data: any) => api.post('/units', data);
 export const updateUnit = (id: string, data: any) => api.put(`/units/${id}`, data);
-export const assignOwner = (unitId: string, ownerId: string) =>
-  api.post(`/units/${unitId}/assign-owner`, { owner_id: ownerId, role: 'primary' });
+export const assignOwner = (unitId: string, ownerId: string, role: string = 'primary') =>
+  api.post(`/units/${unitId}/assign-owner`, { owner_id: ownerId, role: role });
+export const removeOwnerFromUnit = (unitId: string, ownerId: string) =>
+  api.delete(`/units/${unitId}/remove-owner/${ownerId}`);
 
 // Owners
 export const getOwners = () => api.get('/owners');
