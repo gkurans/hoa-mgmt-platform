@@ -608,15 +608,13 @@ export default function DocumentsScreen() {
                     </Text>
                   </View>
                   {isAdmin && (
-                    <TouchableOpacity 
+                    <Pressable 
                       style={styles.renameButton}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        openRenameModal('folder', folder.id, folder.name);
-                      }}
+                      onPress={() => openRenameModal('folder', folder.id, folder.name)}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                      <Ionicons name="pencil" size={18} color="#64748b" />
-                    </TouchableOpacity>
+                      <Ionicons name="pencil" size={18} color="#2563eb" />
+                    </Pressable>
                   )}
                   <Ionicons name="chevron-forward" size={20} color="#94a3b8" />
                 </Card>
