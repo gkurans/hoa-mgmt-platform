@@ -949,6 +949,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 8,
   },
+  editOwnerSmallButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    backgroundColor: '#eff6ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
