@@ -3020,6 +3020,9 @@ async def get_election_guidelines(user: dict = Depends(get_current_user)):
         ]
     }
 
+# Include the router in the main app - MUST be after all routes are defined
+app.include_router(api_router)
+
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
