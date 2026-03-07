@@ -777,6 +777,13 @@ export default function UnitsScreen() {
               secureTextEntry
               autoComplete="new-password"
             />
+            <Input
+              label="Ownership Start Date *"
+              value={newOwner.ownership_start_date}
+              onChangeText={(text) => setNewOwner({ ...newOwner, ownership_start_date: text })}
+              placeholder="YYYY-MM-DD"
+              autoComplete="off"
+            />
             <Button
               title="Create Owner"
               onPress={handleCreateOwner}
