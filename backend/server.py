@@ -81,6 +81,8 @@ class UserResponse(BaseModel):
     phone: str
     role: str
     unit_ids: List[str] = []
+    ownership_start_date: Optional[datetime] = None
+    ownership_end_date: Optional[datetime] = None
     created_at: datetime
 
 class TokenResponse(BaseModel):
