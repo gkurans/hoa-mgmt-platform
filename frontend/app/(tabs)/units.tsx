@@ -176,6 +176,45 @@ export default function UnitsScreen() {
     }
   };
 
+  const handleEditOwner = async () => {
+    if (!selectedOwner) return;
+    if (!editOwner.name || !editOwner.email) {
+      Alert.alert('Error', 'Name and email are required');
+      return;
+    }
+    try {
+      const updateData: any = {
+        name: editOwner.name,
+        email: editOwner.email,
+        phone: editOwner.phone || undefined,
+      };
+      await updateOwner(selectedOwner.id, updateData);
+      Alert.alert('Success', 'Owner updated successfully');
+      setShowEditOwnerModal(false);
+      setSelectedOwner(null);
+      fetchData();
+    } catch (error: any) {
+      Alert.alert('Error', error.response?.data?.detail || 'Failed to update owner');
+    }
+  };
+
+  const openEditOwnerModal = (owner: Owner) => {
+    setSelectedOwner(owner);
+    setEditOwner({
+      name: owner.name,
+      email: owner.email,
+      phone: owner.phone || '',
+      password: '',
+    });
+    setShowEditOwnerModal(true);
+  };
+
+  const openAddOwnerModal = () => {
+    // Reset the form to blank values
+    setNewOwner({ name: '', email: '', phone: '', password: '' });
+    setShowOwnerModal(true);
+  };
+
   const openEditModal = (unit: Unit) => {
     setSelectedUnit(unit);
     setEditUnit({
