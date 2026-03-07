@@ -28,6 +28,8 @@ interface Unit {
   status: string;
   primary_owner_id: string | null;
   primary_owner_name: string | null;
+  owner_ids: string[];
+  owner_names: string[];
   opening_balance: number;
   current_balance: number;
 }
