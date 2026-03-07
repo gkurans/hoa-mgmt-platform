@@ -21,11 +21,8 @@ import {
   getCurrentLeadership,
   getCommitteeMembers,
   getBoardHistory,
-  getRoleResponsibilities,
-  getElectionGuidelines,
   getDecisions,
   createOfficeHolder,
-  updateOfficeHolder,
   deleteOfficeHolder,
   createDecision,
   deleteDecision,
@@ -77,7 +74,66 @@ interface Owner {
   email: string;
 }
 
-type TabType = 'leadership' | 'committee' | 'responsibilities' | 'elections' | 'history' | 'decisions';
+type SectionType = 'leadership' | 'committee' | 'roles' | 'elections' | 'history' | 'decisions';
+
+// Static content for roles and responsibilities
+const ROLE_RESPONSIBILITIES = {
+  president: {
+    title: 'President',
+    icon: 'star',
+    color: '#f59e0b',
+    bgColor: '#fef3c7',
+    responsibilities: [
+      'Lead association meetings',
+      'Represent the association in official matters',
+      'Ensure execution of community decisions',
+      'Coordinate with committee members',
+    ],
+  },
+  treasurer: {
+    title: 'Treasurer',
+    icon: 'cash',
+    color: '#16a34a',
+    bgColor: '#dcfce7',
+    responsibilities: [
+      'Maintain financial records',
+      'Track association funds and expenses',
+      'Present financial updates to owners',
+      'Ensure financial transparency',
+    ],
+  },
+  committee: {
+    title: 'Committee Member',
+    icon: 'people',
+    color: '#2563eb',
+    bgColor: '#eff6ff',
+    responsibilities: [
+      'Participate in discussions',
+      'Vote on association matters',
+      'Support maintenance and community decisions',
+    ],
+  },
+};
+
+const ELECTION_GUIDELINES = {
+  schedule: {
+    frequency: 'Once every year',
+    month: 'January',
+    term_duration: 'January – December of the same year',
+  },
+  process: [
+    'Owners nominate candidates from among the committee members',
+    'Voting is conducted among owners',
+    'Selected candidates assume roles of President and Treasurer',
+    'The Admin records the final election result in the system',
+  ],
+  rules: [
+    'Only one President can exist at a time',
+    'Only one Treasurer can exist at a time',
+    'President and Treasurer must be selected from existing owners',
+    'All owners are automatically Committee Members',
+  ],
+};
 
 export default function BoardScreen() {
   const { user } = useAuthStore();
@@ -85,20 +141,19 @@ export default function BoardScreen() {
   
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabType>('leadership');
+  const [activeSection, setActiveSection] = useState<SectionType>('leadership');
   
   // Data
   const [currentLeadership, setCurrentLeadership] = useState<{ president: Leader | null; treasurer: Leader | null; year: number }>({ president: null, treasurer: null, year: new Date().getFullYear() });
   const [committeeMembers, setCommitteeMembers] = useState<CommitteeMember[]>([]);
   const [history, setHistory] = useState<HistoryRecord[]>([]);
-  const [responsibilities, setResponsibilities] = useState<any>({});
-  const [electionGuidelines, setElectionGuidelines] = useState<any>({});
   const [decisions, setDecisions] = useState<Decision[]>([]);
   const [owners, setOwners] = useState<Owner[]>([]);
   
   // Modals
   const [showAppointModal, setShowAppointModal] = useState(false);
   const [showDecisionModal, setShowDecisionModal] = useState(false);
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const [appointRole, setAppointRole] = useState<'president' | 'treasurer'>('president');
   
   // Forms
@@ -115,12 +170,10 @@ export default function BoardScreen() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [leadershipRes, committeeRes, historyRes, responsibilitiesRes, guidelinesRes, decisionsRes, ownersRes] = await Promise.all([
+      const [leadershipRes, committeeRes, historyRes, decisionsRes, ownersRes] = await Promise.all([
         getCurrentLeadership(),
         getCommitteeMembers(),
         getBoardHistory(),
-        getRoleResponsibilities(),
-        getElectionGuidelines(),
         getDecisions(),
         getOwners(),
       ]);
@@ -128,8 +181,6 @@ export default function BoardScreen() {
       setCurrentLeadership(leadershipRes.data);
       setCommitteeMembers(committeeRes.data);
       setHistory(historyRes.data);
-      setResponsibilities(responsibilitiesRes.data);
-      setElectionGuidelines(guidelinesRes.data);
       setDecisions(decisionsRes.data);
       setOwners(ownersRes.data);
     } catch (error) {
@@ -246,10 +297,10 @@ export default function BoardScreen() {
     );
   };
 
-  const tabs: { key: TabType; label: string; icon: string }[] = [
+  const sections: { key: SectionType; label: string; icon: string }[] = [
     { key: 'leadership', label: 'Leadership', icon: 'people' },
     { key: 'committee', label: 'Committee', icon: 'person-add' },
-    { key: 'responsibilities', label: 'Roles', icon: 'briefcase' },
+    { key: 'roles', label: 'Roles', icon: 'briefcase' },
     { key: 'elections', label: 'Elections', icon: 'checkbox' },
     { key: 'history', label: 'History', icon: 'time' },
     { key: 'decisions', label: 'Decisions', icon: 'document-text' },
@@ -266,56 +317,83 @@ export default function BoardScreen() {
     );
   }
 
+  const renderAddButton = () => {
+    if (!isAdmin) return null;
+    
+    if (activeSection === 'leadership' && (!currentLeadership.president || !currentLeadership.treasurer)) {
+      return (
+        <TouchableOpacity style={styles.addButton} onPress={() => setShowAppointModal(true)}>
+          <Ionicons name="add" size={24} color="#fff" />
+        </TouchableOpacity>
+      );
+    }
+    
+    if (activeSection === 'decisions') {
+      return (
+        <TouchableOpacity style={styles.addButton} onPress={() => setShowDecisionModal(true)}>
+          <Ionicons name="add" size={24} color="#fff" />
+        </TouchableOpacity>
+      );
+    }
+    
+    return null;
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Association Board</Text>
-        {isAdmin && activeTab === 'leadership' && (
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => setShowAppointModal(true)}
-          >
-            <Ionicons name="add" size={24} color="#fff" />
-          </TouchableOpacity>
-        )}
-        {isAdmin && activeTab === 'decisions' && (
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => setShowDecisionModal(true)}
-          >
-            <Ionicons name="add" size={24} color="#fff" />
-          </TouchableOpacity>
-        )}
+        {renderAddButton()}
       </View>
 
-      {/* Tab Navigation */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabContainer}>
-        {tabs.map(tab => (
-          <TouchableOpacity
-            key={tab.key}
-            style={[styles.tab, activeTab === tab.key && styles.tabActive]}
-            onPress={() => setActiveTab(tab.key)}
-          >
-            <Ionicons
-              name={tab.icon as any}
-              size={18}
-              color={activeTab === tab.key ? '#fff' : '#64748b'}
-            />
-            <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      {/* Section Navigation - Two rows for better visibility */}
+      <View style={styles.sectionNavContainer}>
+        <View style={styles.sectionNavRow}>
+          {sections.slice(0, 3).map(section => (
+            <TouchableOpacity
+              key={section.key}
+              style={[styles.sectionTab, activeSection === section.key && styles.sectionTabActive]}
+              onPress={() => setActiveSection(section.key)}
+            >
+              <Ionicons
+                name={section.icon as any}
+                size={18}
+                color={activeSection === section.key ? '#fff' : '#64748b'}
+              />
+              <Text style={[styles.sectionTabText, activeSection === section.key && styles.sectionTabTextActive]}>
+                {section.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <View style={styles.sectionNavRow}>
+          {sections.slice(3).map(section => (
+            <TouchableOpacity
+              key={section.key}
+              style={[styles.sectionTab, activeSection === section.key && styles.sectionTabActive]}
+              onPress={() => setActiveSection(section.key)}
+            >
+              <Ionicons
+                name={section.icon as any}
+                size={18}
+                color={activeSection === section.key ? '#fff' : '#64748b'}
+              />
+              <Text style={[styles.sectionTabText, activeSection === section.key && styles.sectionTabTextActive]}>
+                {section.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
 
       {/* Content */}
       <ScrollView
         style={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        {/* LEADERSHIP TAB */}
-        {activeTab === 'leadership' && (
+        {/* LEADERSHIP SECTION */}
+        {activeSection === 'leadership' && (
           <View>
             <Text style={styles.sectionTitle}>Current Leadership ({currentLeadership.year})</Text>
             
@@ -376,15 +454,18 @@ export default function BoardScreen() {
             </Card>
 
             {isAdmin && (!currentLeadership.president || !currentLeadership.treasurer) && (
-              <Text style={styles.hintText}>
-                Tap the + button to appoint {!currentLeadership.president && 'President'}{!currentLeadership.president && !currentLeadership.treasurer && ' or '}{!currentLeadership.treasurer && 'Treasurer'}
-              </Text>
+              <TouchableOpacity style={styles.appointButton} onPress={() => setShowAppointModal(true)}>
+                <Ionicons name="add-circle" size={20} color="#fff" />
+                <Text style={styles.appointButtonText}>
+                  Appoint {!currentLeadership.president && 'President'}{!currentLeadership.president && !currentLeadership.treasurer && ' or '}{!currentLeadership.treasurer && 'Treasurer'}
+                </Text>
+              </TouchableOpacity>
             )}
           </View>
         )}
 
-        {/* COMMITTEE TAB */}
-        {activeTab === 'committee' && (
+        {/* COMMITTEE SECTION */}
+        {activeSection === 'committee' && (
           <View>
             <Text style={styles.sectionTitle}>Committee Members</Text>
             <Text style={styles.sectionSubtitle}>All owners are automatically committee members</Text>
@@ -393,6 +474,7 @@ export default function BoardScreen() {
               <Card style={styles.emptyCard}>
                 <Ionicons name="people" size={48} color="#94a3b8" />
                 <Text style={styles.emptyText}>No committee members yet</Text>
+                <Text style={styles.emptyHint}>Add owners to the system to populate committee</Text>
               </Card>
             ) : (
               committeeMembers.map(member => (
@@ -403,6 +485,7 @@ export default function BoardScreen() {
                   <View style={styles.memberInfo}>
                     <Text style={styles.memberName}>{member.name}</Text>
                     <Text style={styles.memberEmail}>{member.email}</Text>
+                    {member.phone && <Text style={styles.memberPhone}>{member.phone}</Text>}
                     {member.units.length > 0 && (
                       <Text style={styles.memberUnits}>Units: {member.units.join(', ')}</Text>
                     )}
@@ -410,62 +493,83 @@ export default function BoardScreen() {
                 </Card>
               ))
             )}
+            
+            <View style={styles.infoBox}>
+              <Ionicons name="information-circle" size={20} color="#2563eb" />
+              <Text style={styles.infoText}>
+                Committee members are derived from the owners list. Add owners in the Units section to add committee members.
+              </Text>
+            </View>
           </View>
         )}
 
-        {/* RESPONSIBILITIES TAB */}
-        {activeTab === 'responsibilities' && (
+        {/* ROLES & RESPONSIBILITIES SECTION */}
+        {activeSection === 'roles' && (
           <View>
-            <Text style={styles.sectionTitle}>Role Responsibilities</Text>
+            <Text style={styles.sectionTitle}>Roles & Responsibilities</Text>
+            <Text style={styles.sectionSubtitle}>Duties and expectations for each role</Text>
             
             {/* President */}
-            <Card style={styles.responsibilityCard}>
-              <View style={styles.responsibilityHeader}>
-                <Ionicons name="star" size={24} color="#f59e0b" />
-                <Text style={styles.responsibilityTitle}>President</Text>
-              </View>
-              {responsibilities.president?.map((item: string, index: number) => (
-                <View key={index} style={styles.responsibilityItem}>
-                  <Ionicons name="checkmark-circle" size={18} color="#16a34a" />
-                  <Text style={styles.responsibilityText}>{item}</Text>
+            <Card style={styles.roleCard}>
+              <View style={styles.roleCardHeader}>
+                <View style={[styles.roleIconLarge, { backgroundColor: ROLE_RESPONSIBILITIES.president.bgColor }]}>
+                  <Ionicons name={ROLE_RESPONSIBILITIES.president.icon as any} size={28} color={ROLE_RESPONSIBILITIES.president.color} />
                 </View>
-              ))}
+                <Text style={styles.roleCardTitle}>{ROLE_RESPONSIBILITIES.president.title}</Text>
+              </View>
+              <View style={styles.roleCardContent}>
+                {ROLE_RESPONSIBILITIES.president.responsibilities.map((item, index) => (
+                  <View key={index} style={styles.responsibilityItem}>
+                    <Ionicons name="checkmark-circle" size={18} color="#16a34a" />
+                    <Text style={styles.responsibilityText}>{item}</Text>
+                  </View>
+                ))}
+              </View>
             </Card>
 
             {/* Treasurer */}
-            <Card style={styles.responsibilityCard}>
-              <View style={styles.responsibilityHeader}>
-                <Ionicons name="cash" size={24} color="#16a34a" />
-                <Text style={styles.responsibilityTitle}>Treasurer</Text>
-              </View>
-              {responsibilities.treasurer?.map((item: string, index: number) => (
-                <View key={index} style={styles.responsibilityItem}>
-                  <Ionicons name="checkmark-circle" size={18} color="#16a34a" />
-                  <Text style={styles.responsibilityText}>{item}</Text>
+            <Card style={styles.roleCard}>
+              <View style={styles.roleCardHeader}>
+                <View style={[styles.roleIconLarge, { backgroundColor: ROLE_RESPONSIBILITIES.treasurer.bgColor }]}>
+                  <Ionicons name={ROLE_RESPONSIBILITIES.treasurer.icon as any} size={28} color={ROLE_RESPONSIBILITIES.treasurer.color} />
                 </View>
-              ))}
+                <Text style={styles.roleCardTitle}>{ROLE_RESPONSIBILITIES.treasurer.title}</Text>
+              </View>
+              <View style={styles.roleCardContent}>
+                {ROLE_RESPONSIBILITIES.treasurer.responsibilities.map((item, index) => (
+                  <View key={index} style={styles.responsibilityItem}>
+                    <Ionicons name="checkmark-circle" size={18} color="#16a34a" />
+                    <Text style={styles.responsibilityText}>{item}</Text>
+                  </View>
+                ))}
+              </View>
             </Card>
 
             {/* Committee Member */}
-            <Card style={styles.responsibilityCard}>
-              <View style={styles.responsibilityHeader}>
-                <Ionicons name="people" size={24} color="#2563eb" />
-                <Text style={styles.responsibilityTitle}>Committee Member</Text>
-              </View>
-              {responsibilities.committee_member?.map((item: string, index: number) => (
-                <View key={index} style={styles.responsibilityItem}>
-                  <Ionicons name="checkmark-circle" size={18} color="#16a34a" />
-                  <Text style={styles.responsibilityText}>{item}</Text>
+            <Card style={styles.roleCard}>
+              <View style={styles.roleCardHeader}>
+                <View style={[styles.roleIconLarge, { backgroundColor: ROLE_RESPONSIBILITIES.committee.bgColor }]}>
+                  <Ionicons name={ROLE_RESPONSIBILITIES.committee.icon as any} size={28} color={ROLE_RESPONSIBILITIES.committee.color} />
                 </View>
-              ))}
+                <Text style={styles.roleCardTitle}>{ROLE_RESPONSIBILITIES.committee.title}</Text>
+              </View>
+              <View style={styles.roleCardContent}>
+                {ROLE_RESPONSIBILITIES.committee.responsibilities.map((item, index) => (
+                  <View key={index} style={styles.responsibilityItem}>
+                    <Ionicons name="checkmark-circle" size={18} color="#16a34a" />
+                    <Text style={styles.responsibilityText}>{item}</Text>
+                  </View>
+                ))}
+              </View>
             </Card>
           </View>
         )}
 
-        {/* ELECTIONS TAB */}
-        {activeTab === 'elections' && (
+        {/* ELECTIONS SECTION */}
+        {activeSection === 'elections' && (
           <View>
             <Text style={styles.sectionTitle}>Election Guidelines</Text>
+            <Text style={styles.sectionSubtitle}>Process and rules for board elections</Text>
             
             {/* Schedule */}
             <Card style={styles.guidelineCard}>
@@ -474,9 +578,18 @@ export default function BoardScreen() {
                 <Text style={styles.guidelineTitle}>Election Schedule</Text>
               </View>
               <View style={styles.guidelineContent}>
-                <Text style={styles.guidelineItem}>• Frequency: {electionGuidelines.schedule?.frequency}</Text>
-                <Text style={styles.guidelineItem}>• Month: {electionGuidelines.schedule?.month}</Text>
-                <Text style={styles.guidelineItem}>• Term: {electionGuidelines.schedule?.term_duration}</Text>
+                <View style={styles.scheduleItem}>
+                  <Text style={styles.scheduleLabel}>Frequency:</Text>
+                  <Text style={styles.scheduleValue}>{ELECTION_GUIDELINES.schedule.frequency}</Text>
+                </View>
+                <View style={styles.scheduleItem}>
+                  <Text style={styles.scheduleLabel}>Month:</Text>
+                  <Text style={styles.scheduleValue}>{ELECTION_GUIDELINES.schedule.month}</Text>
+                </View>
+                <View style={styles.scheduleItem}>
+                  <Text style={styles.scheduleLabel}>Term Duration:</Text>
+                  <Text style={styles.scheduleValue}>{ELECTION_GUIDELINES.schedule.term_duration}</Text>
+                </View>
               </View>
             </Card>
 
@@ -487,7 +600,7 @@ export default function BoardScreen() {
                 <Text style={styles.guidelineTitle}>Election Process</Text>
               </View>
               <View style={styles.guidelineContent}>
-                {electionGuidelines.process?.map((step: string, index: number) => (
+                {ELECTION_GUIDELINES.process.map((step, index) => (
                   <View key={index} style={styles.processStep}>
                     <View style={styles.stepNumber}>
                       <Text style={styles.stepNumberText}>{index + 1}</Text>
@@ -502,10 +615,10 @@ export default function BoardScreen() {
             <Card style={styles.guidelineCard}>
               <View style={styles.guidelineHeader}>
                 <Ionicons name="shield-checkmark" size={24} color="#16a34a" />
-                <Text style={styles.guidelineTitle}>Rules</Text>
+                <Text style={styles.guidelineTitle}>Election Rules</Text>
               </View>
               <View style={styles.guidelineContent}>
-                {electionGuidelines.rules?.map((rule: string, index: number) => (
+                {ELECTION_GUIDELINES.rules.map((rule, index) => (
                   <View key={index} style={styles.ruleItem}>
                     <Ionicons name="checkmark" size={18} color="#16a34a" />
                     <Text style={styles.ruleText}>{rule}</Text>
@@ -516,8 +629,8 @@ export default function BoardScreen() {
           </View>
         )}
 
-        {/* HISTORY TAB */}
-        {activeTab === 'history' && (
+        {/* HISTORY SECTION */}
+        {activeSection === 'history' && (
           <View>
             <Text style={styles.sectionTitle}>Historical Records</Text>
             <Text style={styles.sectionSubtitle}>Office holders from 2025 onwards</Text>
@@ -526,6 +639,7 @@ export default function BoardScreen() {
               <Card style={styles.emptyCard}>
                 <Ionicons name="time" size={48} color="#94a3b8" />
                 <Text style={styles.emptyText}>No historical records yet</Text>
+                <Text style={styles.emptyHint}>Records will appear after office holders are appointed</Text>
               </Card>
             ) : (
               history.map(record => (
@@ -552,21 +666,38 @@ export default function BoardScreen() {
                 </Card>
               ))
             )}
+
+            {/* Show current year if not in history */}
+            {history.length === 0 && (
+              <View style={styles.infoBox}>
+                <Ionicons name="information-circle" size={20} color="#2563eb" />
+                <Text style={styles.infoText}>
+                  Appoint President and Treasurer in the Leadership section to create historical records.
+                </Text>
+              </View>
+            )}
           </View>
         )}
 
-        {/* DECISIONS TAB */}
-        {activeTab === 'decisions' && (
+        {/* DECISIONS SECTION */}
+        {activeSection === 'decisions' && (
           <View>
             <Text style={styles.sectionTitle}>Decisions & Resolutions</Text>
             <Text style={styles.sectionSubtitle}>Official decisions made by the association</Text>
+            
+            {isAdmin && (
+              <TouchableOpacity style={styles.addDecisionButton} onPress={() => setShowDecisionModal(true)}>
+                <Ionicons name="add-circle" size={20} color="#fff" />
+                <Text style={styles.addDecisionButtonText}>Record New Decision</Text>
+              </TouchableOpacity>
+            )}
             
             {decisions.length === 0 ? (
               <Card style={styles.emptyCard}>
                 <Ionicons name="document-text" size={48} color="#94a3b8" />
                 <Text style={styles.emptyText}>No decisions recorded yet</Text>
                 {isAdmin && (
-                  <Text style={styles.emptyHint}>Tap + to record a new decision</Text>
+                  <Text style={styles.emptyHint}>Tap "Record New Decision" to add one</Text>
                 )}
               </Card>
             ) : (
@@ -580,14 +711,16 @@ export default function BoardScreen() {
                       </TouchableOpacity>
                     )}
                   </View>
-                  <Text style={styles.decisionDate}>
-                    <Ionicons name="calendar" size={14} color="#64748b" /> {decision.decision_date}
-                  </Text>
+                  <View style={styles.decisionMeta}>
+                    <Ionicons name="calendar" size={14} color="#64748b" />
+                    <Text style={styles.decisionDate}>{decision.decision_date}</Text>
+                  </View>
                   <Text style={styles.decisionDescription}>{decision.description}</Text>
                   {decision.participants.length > 0 && (
-                    <Text style={styles.decisionParticipants}>
-                      <Ionicons name="people" size={14} color="#64748b" /> {decision.participants.join(', ')}
-                    </Text>
+                    <View style={styles.decisionParticipants}>
+                      <Ionicons name="people" size={14} color="#64748b" />
+                      <Text style={styles.decisionParticipantsText}>{decision.participants.join(', ')}</Text>
+                    </View>
                   )}
                   {decision.documents.length > 0 && (
                     <View style={styles.decisionDocs}>
@@ -796,31 +929,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  tabContainer: {
+  sectionNavContainer: {
     backgroundColor: '#fff',
     paddingVertical: 8,
+    paddingHorizontal: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
   },
-  tab: {
+  sectionNavRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 8,
+  },
+  sectionTab: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingVertical: 8,
-    marginHorizontal: 4,
     borderRadius: 20,
     backgroundColor: '#f1f5f9',
-    gap: 6,
+    gap: 4,
   },
-  tabActive: {
+  sectionTabActive: {
     backgroundColor: '#2563eb',
   },
-  tabText: {
-    fontSize: 13,
+  sectionTabText: {
+    fontSize: 12,
     fontWeight: '600',
     color: '#64748b',
   },
-  tabTextActive: {
+  sectionTabTextActive: {
     color: '#fff',
   },
   content: {
@@ -828,7 +966,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
     color: '#1e293b',
     marginBottom: 4,
@@ -868,10 +1006,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   roleTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: '#64748b',
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   leaderName: {
     fontSize: 18,
@@ -892,12 +1031,21 @@ const styles = StyleSheet.create({
   removeButton: {
     padding: 4,
   },
-  hintText: {
-    fontSize: 14,
-    color: '#64748b',
-    textAlign: 'center',
+  appointButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#2563eb',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
     marginTop: 8,
-    fontStyle: 'italic',
+  },
+  appointButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
   },
   memberCard: {
     flexDirection: 'row',
@@ -924,6 +1072,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#64748b',
   },
+  memberPhone: {
+    fontSize: 13,
+    color: '#94a3b8',
+  },
   memberUnits: {
     fontSize: 13,
     color: '#2563eb',
@@ -942,29 +1094,55 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#94a3b8',
     marginTop: 4,
+    textAlign: 'center',
   },
-  responsibilityCard: {
-    marginBottom: 12,
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: '#eff6ff',
+    padding: 14,
+    borderRadius: 12,
+    marginTop: 16,
   },
-  responsibilityHeader: {
+  infoText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#1e40af',
+    lineHeight: 20,
+  },
+  roleCard: {
+    marginBottom: 16,
+  },
+  roleCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 12,
+    gap: 12,
+    marginBottom: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
   },
-  responsibilityTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+  roleIconLarge: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  roleCardTitle: {
+    fontSize: 20,
+    fontWeight: '700',
     color: '#1e293b',
+  },
+  roleCardContent: {
+    paddingLeft: 4,
   },
   responsibilityItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 8,
-    marginBottom: 8,
+    gap: 10,
+    marginBottom: 10,
   },
   responsibilityText: {
     flex: 1,
@@ -973,13 +1151,13 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   guidelineCard: {
-    marginBottom: 12,
+    marginBottom: 16,
   },
   guidelineHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   guidelineTitle: {
     fontSize: 18,
@@ -989,16 +1167,25 @@ const styles = StyleSheet.create({
   guidelineContent: {
     paddingLeft: 4,
   },
-  guidelineItem: {
+  scheduleItem: {
+    flexDirection: 'row',
+    marginBottom: 8,
+  },
+  scheduleLabel: {
     fontSize: 15,
+    fontWeight: '600',
     color: '#475569',
-    marginBottom: 6,
-    lineHeight: 22,
+    width: 120,
+  },
+  scheduleValue: {
+    flex: 1,
+    fontSize: 15,
+    color: '#1e293b',
   },
   processStep: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 14,
     gap: 12,
   },
   stepNumber: {
@@ -1023,8 +1210,8 @@ const styles = StyleSheet.create({
   ruleItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 8,
-    marginBottom: 8,
+    gap: 10,
+    marginBottom: 10,
   },
   ruleText: {
     flex: 1,
@@ -1037,16 +1224,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   historyYear: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
+    width: 64,
+    height: 64,
+    borderRadius: 12,
     backgroundColor: '#2563eb',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
   },
   historyYearText: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
     color: '#fff',
   },
@@ -1057,16 +1244,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 4,
+    marginBottom: 6,
   },
   historyRoleLabel: {
     fontSize: 14,
     fontWeight: '600',
     color: '#64748b',
+    width: 80,
   },
   historyName: {
+    flex: 1,
     fontSize: 14,
     color: '#1e293b',
+    fontWeight: '500',
+  },
+  addDecisionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#2563eb',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  addDecisionButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
   },
   decisionCard: {
     marginBottom: 12,
@@ -1081,12 +1287,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1e293b',
     flex: 1,
+    marginRight: 12,
+  },
+  decisionMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+    marginBottom: 10,
   },
   decisionDate: {
     fontSize: 13,
     color: '#64748b',
-    marginTop: 4,
-    marginBottom: 8,
   },
   decisionDescription: {
     fontSize: 15,
@@ -1094,9 +1306,14 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   decisionParticipants: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 10,
+  },
+  decisionParticipantsText: {
     fontSize: 13,
     color: '#64748b',
-    marginTop: 8,
   },
   decisionDocs: {
     flexDirection: 'row',
