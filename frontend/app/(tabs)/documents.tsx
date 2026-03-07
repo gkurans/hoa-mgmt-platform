@@ -1329,4 +1329,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#dc2626',
     alignItems: 'center',
   },
+  renameButton: {
+    padding: 8,
+    marginRight: 8,
+  },
+  renameModalButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    borderRadius: 12,
+    backgroundColor: '#f59e0b',
+    alignItems: 'center',
+    marginHorizontal: 8,
+  },
 });
