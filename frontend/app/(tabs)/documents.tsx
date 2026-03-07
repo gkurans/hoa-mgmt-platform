@@ -607,6 +607,17 @@ export default function DocumentsScreen() {
                       {folder.children_count === 0 && folder.files_count === 0 && 'Empty'}
                     </Text>
                   </View>
+                  {isAdmin && (
+                    <TouchableOpacity 
+                      style={styles.renameButton}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        openRenameModal('folder', folder.id, folder.name);
+                      }}
+                    >
+                      <Ionicons name="pencil" size={18} color="#64748b" />
+                    </TouchableOpacity>
+                  )}
                   <Ionicons name="chevron-forward" size={20} color="#94a3b8" />
                 </Card>
               </TouchableOpacity>
