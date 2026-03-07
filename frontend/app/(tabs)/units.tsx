@@ -1071,6 +1071,46 @@ const styles = StyleSheet.create({
     color: '#64748b',
     marginBottom: 16,
   },
+  currentOwnersSection: {
+    marginBottom: 16,
+    padding: 12,
+    backgroundColor: '#f0fdf4',
+    borderRadius: 8,
+  },
+  currentOwnersLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#16a34a',
+    marginBottom: 8,
+  },
+  currentOwnersList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  currentOwnerTag: {
+    backgroundColor: '#dcfce7',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  currentOwnerText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#166534',
+  },
+  availableOwnersLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1e293b',
+    marginBottom: 8,
+  },
+  noOwnersText: {
+    fontSize: 14,
+    color: '#64748b',
+    textAlign: 'center',
+    padding: 20,
+  },
   ownerList: {
     maxHeight: 300,
   },
