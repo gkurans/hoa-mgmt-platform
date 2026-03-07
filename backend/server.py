@@ -2828,8 +2828,23 @@ async def get_current_leadership(user: dict = Depends(get_current_user)):
 # Get committee members (derived from owners list)
 @api_router.get("/board/committee")
 async def get_committee_members(user: dict = Depends(get_current_user)):
-    """Get all committee members (all owners are automatically committee members)"""
-    owners = await db.users.find({"role": "owner"}).to_list(None)
+    """Get all current committee members (current owners are automatically committee members)
+    
+    A current owner is defined as:
+    - ownership_end_date is None (blank), OR
+    - ownership_end_date >= current date
+    """
+    current_date = datetime.utcnow()
+    
+    # Query for current owners only
+    owners = await db.users.find({
+        "role": "owner",
+        "$or": [
+            {"ownership_end_date": None},
+            {"ownership_end_date": {"$exists": False}},
+            {"ownership_end_date": {"$gte": current_date}}
+        ]
+    }).to_list(None)
     
     members = []
     for owner in owners:
@@ -2843,6 +2858,8 @@ async def get_committee_members(user: dict = Depends(get_current_user)):
             "email": owner["email"],
             "phone": owner.get("phone", ""),
             "units": unit_names,
+            "ownership_start_date": owner.get("ownership_start_date").isoformat() if owner.get("ownership_start_date") else None,
+            "ownership_end_date": owner.get("ownership_end_date").isoformat() if owner.get("ownership_end_date") else None,
             "joined_at": owner.get("created_at", "").isoformat() if owner.get("created_at") else None
         })
     
