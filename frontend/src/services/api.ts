@@ -151,6 +151,48 @@ export const getBreadcrumb = (folderId: string) => api.get(`/documents/breadcrum
 export const getUnitLedger = (unitId: string, year?: number) =>
   api.get(`/ledger/${unitId}`, { params: year ? { year } : {} });
 
+// Board / Association Members
+export const getCurrentLeadership = () => api.get('/board/current');
+export const getCommitteeMembers = () => api.get('/board/committee');
+export const getBoardHistory = () => api.get('/board/history');
+export const getRoleResponsibilities = () => api.get('/board/responsibilities');
+export const getElectionGuidelines = () => api.get('/board/election-guidelines');
+export const getDecisions = () => api.get('/board/decisions');
+
+export const createOfficeHolder = (data: {
+  role: 'president' | 'treasurer';
+  owner_id: string;
+  year: number;
+  start_date?: string;
+  end_date?: string;
+}) => api.post('/board/office-holders', data);
+
+export const updateOfficeHolder = (holderId: string, data: {
+  owner_id?: string;
+  start_date?: string;
+  end_date?: string;
+}) => api.put(`/board/office-holders/${holderId}`, data);
+
+export const deleteOfficeHolder = (holderId: string) => api.delete(`/board/office-holders/${holderId}`);
+
+export const createDecision = (data: {
+  title: string;
+  description: string;
+  decision_date: string;
+  participants?: string[];
+  document_ids?: string[];
+}) => api.post('/board/decisions', data);
+
+export const updateDecision = (decisionId: string, data: {
+  title?: string;
+  description?: string;
+  decision_date?: string;
+  participants?: string[];
+  document_ids?: string[];
+}) => api.put(`/board/decisions/${decisionId}`, data);
+
+export const deleteDecision = (decisionId: string) => api.delete(`/board/decisions/${decisionId}`);
+
 // Seed
 export const seedData = () => api.post('/seed');
 
