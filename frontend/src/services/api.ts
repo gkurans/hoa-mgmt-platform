@@ -277,4 +277,10 @@ export const deleteDecision = (decisionId: string) => api.delete(`/board/decisio
 // Seed
 export const seedData = () => api.post('/seed');
 
+// System Status & Backup
+export const getSystemStatus = () => api.get('/system/status');
+export const createBackup = () => api.post('/admin/backup');
+export const downloadBackup = () => api.get('/admin/backup/download', { responseType: 'blob' });
+export const getBackupHistory = (limit: number = 10) => api.get('/admin/backup/history', { params: { limit } });
+
 export default api;
