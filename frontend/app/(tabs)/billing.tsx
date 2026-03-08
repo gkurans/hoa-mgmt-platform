@@ -115,6 +115,39 @@ interface Adjustment {
   created_at: string;
 }
 
+interface MonthlyDues {
+  id: string;
+  period: string;
+  year: number;
+  month: number;
+  maintenance_total: number;
+  repairs_capital_total: number;
+  security_total: number;
+  other_total: number;
+  hoa_dues_water: number;
+  hoa_dues_electricity: number;
+  condo_hoa_share: number;
+  shop_hoa_share: number;
+  total_amount: number;
+  unit_count: number;
+  condo_count: number;
+  shop_count: number;
+  status: string;
+  created_by: string;
+  notes?: string;
+  unit_allocations?: {
+    unit_id: string;
+    unit_display: string;
+    unit_type: string;
+    maintenance: number;
+    repairs_capital: number;
+    security: number;
+    other: number;
+    hoa_dues: number;
+    total: number;
+  }[];
+}
+
 export default function BillingScreen() {
   const { user } = useAuthStore();
   const isAdminUser = user?.role === 'admin' || user?.role === 'treasurer';
