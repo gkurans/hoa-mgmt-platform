@@ -300,13 +300,14 @@ export default function BillingScreen() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [setupsRes, unitsRes, categoriesRes, expensesRes, adjustmentsRes, paymentsRes] = await Promise.all([
+      const [setupsRes, unitsRes, categoriesRes, expensesRes, adjustmentsRes, paymentsRes, monthlyDuesRes] = await Promise.all([
         getAnnualSetups(),
         getUnits(),
         getCategories(),
         isAdminUser ? getExpenses() : Promise.resolve({ data: [] }),
         isAdminUser ? getAdjustments() : Promise.resolve({ data: [] }),
         isAdminUser ? getPayments() : Promise.resolve({ data: [] }),
+        isAdminUser ? getMonthlyDuesList() : Promise.resolve({ data: [] }),
       ]);
       setSetups(setupsRes.data);
       setUnits(unitsRes.data);
@@ -314,6 +315,7 @@ export default function BillingScreen() {
       setExpenses(expensesRes.data);
       setAdjustments(adjustmentsRes.data);
       setPayments(paymentsRes.data);
+      setMonthlyDuesList(monthlyDuesRes.data);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
