@@ -1739,6 +1739,88 @@ export default function BillingScreen() {
           </ScrollView>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Manage Categories Modal */}
+      <Modal
+        visible={showCategoryModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowCategoryModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Manage Categories</Text>
+              <TouchableOpacity onPress={() => setShowCategoryModal(false)}>
+                <Ionicons name="close" size={24} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={{ maxHeight: 400 }}>
+              {categories.map(category => (
+                <View key={category.id} style={styles.categoryListItem}>
+                  <View style={styles.categoryInfo}>
+                    <Text style={styles.categoryName}>{category.name}</Text>
+                    {category.description && (
+                      <Text style={styles.categoryDescription}>{category.description}</Text>
+                    )}
+                  </View>
+                  <TouchableOpacity
+                    style={styles.editCategoryButton}
+                    onPress={() => {
+                      setShowCategoryModal(false);
+                      openEditCategoryModal(category);
+                    }}
+                  >
+                    <Ionicons name="pencil" size={18} color="#2563eb" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Edit Category Modal */}
+      <Modal
+        visible={showEditCategoryModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowEditCategoryModal(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Edit Category</Text>
+              <TouchableOpacity onPress={() => setShowEditCategoryModal(false)}>
+                <Ionicons name="close" size={24} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+            <Input
+              label="Category Name *"
+              value={editCategoryForm.name}
+              onChangeText={(text) => setEditCategoryForm({ ...editCategoryForm, name: text })}
+              placeholder="e.g., Maintenance, HOA Dues"
+            />
+            <Input
+              label="Description"
+              value={editCategoryForm.description}
+              onChangeText={(text) => setEditCategoryForm({ ...editCategoryForm, description: text })}
+              placeholder="Optional description for reports"
+              multiline
+            />
+            <Button
+              title={isSubmitting ? "Saving..." : "Save Changes"}
+              onPress={handleUpdateCategory}
+              loading={isSubmitting}
+              disabled={isSubmitting || !editCategoryForm.name.trim()}
+              style={{ marginTop: 16 }}
+            />
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
