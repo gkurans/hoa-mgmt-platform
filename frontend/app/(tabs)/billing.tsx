@@ -1254,13 +1254,32 @@ export default function BillingScreen() {
                 onChangeText={(text) => setNewExpense({ ...newExpense, reference: text })}
                 placeholder="Transaction reference"
               />
-              <Input
-                label="Description"
-                value={newExpense.description}
-                onChangeText={(text) => setNewExpense({ ...newExpense, description: text })}
-                placeholder="What was this payment for?"
-                multiline
-              />
+              
+              {/* Description field - Required for "Other" category */}
+              {(() => {
+                const selectedCategory = categories.find(c => c.id === newExpense.category_id);
+                const isOtherCategory = selectedCategory?.name?.toLowerCase() === 'other';
+                return (
+                  <View style={isOtherCategory ? styles.highlightedField : undefined}>
+                    {isOtherCategory && (
+                      <View style={styles.otherCategoryNotice}>
+                        <Ionicons name="information-circle" size={16} color="#d97706" />
+                        <Text style={styles.otherCategoryNoticeText}>
+                          Please describe what this expense is for
+                        </Text>
+                      </View>
+                    )}
+                    <Input
+                      label={isOtherCategory ? "Description *" : "Description"}
+                      value={newExpense.description}
+                      onChangeText={(text) => setNewExpense({ ...newExpense, description: text })}
+                      placeholder={isOtherCategory ? "Required: What was this expense for?" : "What was this payment for?"}
+                      multiline
+                    />
+                  </View>
+                );
+              })()}
+              
               <Button 
                 title="Record Expense" 
                 onPress={handleRecordExpense} 
