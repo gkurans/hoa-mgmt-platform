@@ -479,6 +479,39 @@ export default function BillingScreen() {
     }
   };
 
+  // Category management handlers
+  const openEditCategoryModal = (category: Category) => {
+    setSelectedCategory(category);
+    setEditCategoryForm({
+      name: category.name,
+      description: category.description || '',
+    });
+    setShowEditCategoryModal(true);
+  };
+
+  const handleUpdateCategory = async () => {
+    if (!selectedCategory) return;
+    if (!editCategoryForm.name.trim()) {
+      showMessage('Error', 'Category name cannot be blank', true);
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await updateCategory(selectedCategory.id, {
+        name: editCategoryForm.name.trim(),
+        description: editCategoryForm.description.trim(),
+      });
+      setShowEditCategoryModal(false);
+      setSelectedCategory(null);
+      showMessage('Success', 'Category updated successfully!');
+      fetchData();
+    } catch (error: any) {
+      showMessage('Error', error.response?.data?.detail || 'Failed to update category', true);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   // Open edit payment modal
   const openEditPaymentModal = (payment: Payment) => {
     setSelectedPayment(payment);
