@@ -522,6 +522,7 @@ export default function BillingScreen() {
       method: payment.method,
       reference: payment.reference || '',
       notes: payment.notes || '',
+      category_id: payment.category_id || '',
       reason: '',
     });
     setShowEditPaymentModal(true);
@@ -542,6 +543,7 @@ export default function BillingScreen() {
         method: editPaymentForm.method || undefined,
         reference: editPaymentForm.reference || undefined,
         notes: editPaymentForm.notes || undefined,
+        category_id: editPaymentForm.category_id || undefined,
         reason: editPaymentForm.reason,
       });
       setShowEditPaymentModal(false);
