@@ -568,6 +568,7 @@ export default function BillingScreen() {
       method: expense.method,
       reference: '',
       invoice_number: expense.invoice_number || '',
+      category_id: expense.category_id || '',
       reason: '',
     });
     setShowEditExpenseModal(true);
@@ -590,6 +591,7 @@ export default function BillingScreen() {
         method: editExpenseForm.method || undefined,
         reference: editExpenseForm.reference || undefined,
         invoice_number: editExpenseForm.invoice_number || undefined,
+        category_id: editExpenseForm.category_id || undefined,
         reason: editExpenseForm.reason,
       });
       setShowEditExpenseModal(false);
