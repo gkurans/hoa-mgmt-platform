@@ -1707,6 +1707,7 @@ class ExpenseUpdate(BaseModel):
     method: Optional[str] = None
     reference: Optional[str] = None
     invoice_number: Optional[str] = None
+    category_id: Optional[str] = None  # Allow changing category
     reason: str  # Required for any edit
 
 @api_router.put("/expenses/{expense_id}", response_model=ExpenseResponse)
