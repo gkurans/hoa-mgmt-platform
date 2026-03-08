@@ -5,11 +5,14 @@ import {
   StyleSheet,
   ScrollView,
   RefreshControl,
+  TouchableOpacity,
+  Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../src/store/authStore';
-import { getAdminDashboard, getOwnerDashboard } from '../../src/services/api';
+import { getAdminDashboard, getOwnerDashboard, getSystemStatus, createBackup } from '../../src/services/api';
 import Card from '../../src/components/Card';
 import LoadingSpinner from '../../src/components/LoadingSpinner';
 
@@ -42,12 +45,20 @@ interface OwnerData {
   expenses_this_year: number;
 }
 
+interface SystemStatus {
+  environment: string;
+  is_production: boolean;
+  write_protection: boolean;
+}
+
 export default function DashboardScreen() {
   const { user, isAdmin } = useAuthStore();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [adminData, setAdminData] = useState<AdminData | null>(null);
   const [ownerData, setOwnerData] = useState<OwnerData | null>(null);
+  const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
+  const [backupLoading, setBackupLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
