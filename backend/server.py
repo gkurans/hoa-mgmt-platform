@@ -1734,7 +1734,9 @@ async def update_expense(expense_id: str, update_data: ExpenseUpdate, user: dict
         "description": expense.get("description", ""),
         "method": expense["method"],
         "reference": expense.get("reference", ""),
-        "invoice_number": expense.get("invoice_number", "")
+        "invoice_number": expense.get("invoice_number", ""),
+        "category_id": expense.get("category_id", ""),
+        "category_name": expense.get("category_name", "")
     }
     
     update_dict = {}
@@ -1752,6 +1754,13 @@ async def update_expense(expense_id: str, update_data: ExpenseUpdate, user: dict
         update_dict["reference"] = update_data.reference
     if update_data.invoice_number is not None:
         update_dict["invoice_number"] = update_data.invoice_number
+    
+    # Handle category change
+    if update_data.category_id is not None:
+        category = await db.categories.find_one({"_id": ObjectId(update_data.category_id)})
+        if category:
+            update_dict["category_id"] = update_data.category_id
+            update_dict["category_name"] = category["name"]
     
     update_dict["updated_at"] = datetime.utcnow()
     update_dict["updated_by"] = str(user["_id"])
