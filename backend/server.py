@@ -390,6 +390,96 @@ async def log_audit(entity_type: str, entity_id: str, action: str,
     }
     await db.audit_logs.insert_one(audit)
 
+# Error logging function for centralized error tracking
+async def log_error(
+    module: str,
+    error_type: str,
+    error_message: str,
+    user_id: str = None,
+    request_path: str = None,
+    request_method: str = None,
+    stack_trace: str = None,
+    additional_data: dict = None
+):
+    """Log errors to database for monitoring and debugging"""
+    error_log = {
+        "module": module,  # e.g., "auth", "billing", "documents"
+        "error_type": error_type,  # e.g., "validation", "database", "authentication"
+        "error_message": error_message,
+        "user_id": user_id,
+        "request_path": request_path,
+        "request_method": request_method,
+        "stack_trace": stack_trace,
+        "additional_data": additional_data,
+        "timestamp": datetime.utcnow()
+    }
+    try:
+        await db.error_logs.insert_one(error_log)
+    except Exception as e:
+        # If we can't log to DB, at least print to console
+        print(f"ERROR LOG FAILED: {error_log}, reason: {e}")
+
+# API endpoint to get error logs (Admin only)
+@api_router.get("/error-logs")
+async def get_error_logs(
+    module: str = None,
+    error_type: str = None,
+    start_date: str = None,
+    end_date: str = None,
+    limit: int = 100,
+    user: dict = Depends(require_admin)
+):
+    """Get error logs for monitoring - Admin only"""
+    query = {}
+    
+    if module:
+        query["module"] = module
+    if error_type:
+        query["error_type"] = error_type
+    if start_date:
+        query["timestamp"] = {"$gte": datetime.fromisoformat(start_date)}
+    if end_date:
+        if "timestamp" in query:
+            query["timestamp"]["$lte"] = datetime.fromisoformat(end_date)
+        else:
+            query["timestamp"] = {"$lte": datetime.fromisoformat(end_date)}
+    
+    logs = await db.error_logs.find(query).sort("timestamp", -1).limit(limit).to_list(None)
+    
+    return [
+        {
+            "id": str(log["_id"]),
+            "module": log["module"],
+            "error_type": log["error_type"],
+            "error_message": log["error_message"],
+            "user_id": log.get("user_id"),
+            "request_path": log.get("request_path"),
+            "request_method": log.get("request_method"),
+            "timestamp": log["timestamp"].isoformat(),
+            "additional_data": log.get("additional_data")
+        }
+        for log in logs
+    ]
+
+# Global exception handler middleware
+@app.middleware("http")
+async def error_logging_middleware(request: Request, call_next):
+    try:
+        response = await call_next(request)
+        return response
+    except Exception as e:
+        # Log unhandled exceptions
+        import traceback
+        await log_error(
+            module="global",
+            error_type="unhandled_exception",
+            error_message=str(e),
+            request_path=str(request.url.path),
+            request_method=request.method,
+            stack_trace=traceback.format_exc()
+        )
+        raise
+
 # ============== AUTH ROUTES ==============
 
 @api_router.post("/auth/register", response_model=TokenResponse)
