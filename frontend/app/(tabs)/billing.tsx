@@ -161,8 +161,15 @@ export default function BillingScreen() {
   const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   
-  const [activeTab, setActiveTab] = useState<'allocation' | 'payments' | 'expenses' | 'adjustments'>('allocation');
+  const [activeTab, setActiveTab] = useState<'allocation' | 'monthly' | 'payments' | 'expenses' | 'adjustments'>('allocation');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Monthly Dues state
+  const [monthlyDuesList, setMonthlyDuesList] = useState<MonthlyDues[]>([]);
+  const [selectedMonthlyDues, setSelectedMonthlyDues] = useState<MonthlyDues | null>(null);
+  const [showMonthlyDuesModal, setShowMonthlyDuesModal] = useState(false);
+  const [showMonthlyDuesPreviewModal, setShowMonthlyDuesPreviewModal] = useState(false);
+  const [monthlyDuesPreview, setMonthlyDuesPreview] = useState<any>(null);
   
   // Modals
   const [showSetupModal, setShowSetupModal] = useState(false);
