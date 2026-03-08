@@ -1,16 +1,47 @@
-import axios from 'axios';
-import { Platform } from 'react-native';
+import axios, { AxiosError } from 'axios';
+import { Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+
+// Retry configuration
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 2000; // 2 seconds
+
+// Helper to delay
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Server status tracking
+let isServerWakingUp = false;
+let serverWakeUpListeners: (() => void)[] = [];
+
+export const notifyServerWakeUp = () => {
+  isServerWakingUp = true;
+  serverWakeUpListeners.forEach(listener => listener());
+};
+
+export const notifyServerReady = () => {
+  isServerWakingUp = false;
+};
+
+export const onServerWakeUp = (callback: () => void) => {
+  serverWakeUpListeners.push(callback);
+  return () => {
+    serverWakeUpListeners = serverWakeUpListeners.filter(l => l !== callback);
+  };
+};
+
+export const isServerWaking = () => isServerWakingUp;
 
 const api = axios.create({
   baseURL: `${API_URL}/api`,
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 30000, // 30 second timeout
 });
 
+// Request interceptor - add auth token
 api.interceptors.request.use(async (config) => {
   const token = await AsyncStorage.getItem('token');
   if (token) {
@@ -18,6 +49,54 @@ api.interceptors.request.use(async (config) => {
   }
   return config;
 });
+
+// Response interceptor - handle errors with retry logic
+api.interceptors.response.use(
+  (response) => {
+    notifyServerReady();
+    return response;
+  },
+  async (error: AxiosError) => {
+    const config = error.config as any;
+    
+    // Initialize retry count
+    if (!config._retryCount) {
+      config._retryCount = 0;
+    }
+    
+    // Check if we should retry
+    const shouldRetry = (
+      config._retryCount < MAX_RETRIES &&
+      (
+        !error.response || // Network error
+        error.response.status === 502 || // Bad Gateway (server waking up)
+        error.response.status === 503 || // Service Unavailable
+        error.response.status === 504 || // Gateway Timeout
+        error.code === 'ECONNABORTED' || // Timeout
+        error.code === 'ERR_NETWORK' // Network error
+      )
+    );
+    
+    if (shouldRetry) {
+      config._retryCount++;
+      
+      // Notify that server might be waking up
+      if (config._retryCount === 1) {
+        notifyServerWakeUp();
+        console.log('Server appears to be starting. Retrying...');
+      }
+      
+      // Wait before retrying
+      await delay(RETRY_DELAY * config._retryCount);
+      
+      // Retry the request
+      return api(config);
+    }
+    
+    notifyServerReady();
+    return Promise.reject(error);
+  }
+);
 
 // Units
 export const getUnits = () => api.get('/units');
