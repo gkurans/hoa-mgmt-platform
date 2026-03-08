@@ -204,6 +204,7 @@ export default function BillingScreen() {
     method: '',
     reference: '',
     notes: '',
+    category_id: '', // Added for category change
     reason: '', // Required for audit
   });
 
@@ -213,6 +214,7 @@ export default function BillingScreen() {
     payment_date: '',
     description: '',
     method: '',
+    category_id: '', // Added for category change
     reference: '',
     invoice_number: '',
     reason: '', // Required for audit
