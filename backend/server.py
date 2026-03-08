@@ -22,6 +22,11 @@ import mimetypes
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
+# Environment Configuration
+ENVIRONMENT = os.environ.get('ENVIRONMENT', 'development').lower()
+WRITE_PROTECTION = os.environ.get('WRITE_PROTECTION', 'false').lower() == 'true'
+IS_PRODUCTION = ENVIRONMENT == 'production'
+
 # Create uploads directory
 UPLOADS_DIR = ROOT_DIR / "uploads"
 UPLOADS_DIR.mkdir(exist_ok=True)
@@ -47,6 +52,15 @@ security = HTTPBearer()
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Write protection check function
+def check_write_permission():
+    """Check if write operations are allowed in current environment"""
+    if WRITE_PROTECTION and not IS_PRODUCTION:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Write operations are disabled in {ENVIRONMENT} environment. Set WRITE_PROTECTION=false to enable."
+        )
 
 # ============== MODELS ==============
 
