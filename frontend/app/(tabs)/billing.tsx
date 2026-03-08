@@ -33,6 +33,7 @@ import {
   updateExpense,
   createAdjustment,
   getAdjustments,
+  updateCategory,
 } from '../../src/services/api';
 import { useAuthStore } from '../../src/store/authStore';
 import Card from '../../src/components/Card';
