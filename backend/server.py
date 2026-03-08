@@ -2861,6 +2861,102 @@ async def get_breadcrumb(folder_id: str, user: dict = Depends(get_current_user))
 async def health_check():
     return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
 
+# ============== ENVIRONMENT & SYSTEM STATUS ==============
+
+@api_router.get("/system/status")
+async def get_system_status():
+    """Get current environment and system status - available to all authenticated users"""
+    return {
+        "environment": ENVIRONMENT,
+        "is_production": IS_PRODUCTION,
+        "write_protection": WRITE_PROTECTION,
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+# ============== DATABASE BACKUP & RESTORE ==============
+
+@api_router.post("/admin/backup")
+async def create_backup(user: dict = Depends(require_admin)):
+    """Create a full database backup - Admin only"""
+    backup_data = {
+        "backup_timestamp": datetime.utcnow().isoformat(),
+        "environment": ENVIRONMENT,
+        "version": "1.0",
+        "collections": {}
+    }
+    
+    # Export all collections
+    collections_to_backup = [
+        "users", "units", "categories", "charges", "payments", 
+        "expenses", "adjustments", "folders", "documents",
+        "office_holders", "decisions", "audit_logs"
+    ]
+    
+    for collection_name in collections_to_backup:
+        try:
+            collection = db[collection_name]
+            docs = await collection.find().to_list(None)
+            # Convert ObjectId to string for JSON serialization
+            serialized_docs = []
+            for doc in docs:
+                serialized_doc = {}
+                for key, value in doc.items():
+                    if key == "_id":
+                        serialized_doc["_id"] = str(value)
+                    elif isinstance(value, datetime):
+                        serialized_doc[key] = value.isoformat()
+                    elif isinstance(value, ObjectId):
+                        serialized_doc[key] = str(value)
+                    else:
+                        serialized_doc[key] = value
+                serialized_docs.append(serialized_doc)
+            backup_data["collections"][collection_name] = serialized_docs
+        except Exception as e:
+            backup_data["collections"][collection_name] = {"error": str(e)}
+    
+    # Log the backup action
+    await log_audit("system", "backup", "create_backup", None, 
+                   {"collections": list(collections_to_backup)}, str(user["_id"]))
+    
+    return backup_data
+
+@api_router.get("/admin/backup/download")
+async def download_backup(user: dict = Depends(require_admin)):
+    """Download backup as a JSON file - Admin only"""
+    import json
+    
+    backup_data = await create_backup(user)
+    
+    # Create a temporary file
+    backup_filename = f"hoa_backup_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
+    backup_path = UPLOADS_DIR / backup_filename
+    
+    with open(backup_path, 'w') as f:
+        json.dump(backup_data, f, indent=2, default=str)
+    
+    return FileResponse(
+        path=str(backup_path),
+        filename=backup_filename,
+        media_type="application/json"
+    )
+
+@api_router.get("/admin/backup/history")
+async def get_backup_history(limit: int = 10, user: dict = Depends(require_admin)):
+    """Get recent backup operations from audit log - Admin only"""
+    backups = await db.audit_logs.find({
+        "entity_type": "system",
+        "action": "create_backup"
+    }).sort("timestamp", -1).limit(limit).to_list(None)
+    
+    return [
+        {
+            "id": str(b["_id"]),
+            "timestamp": b["timestamp"].isoformat(),
+            "performed_by": b["performed_by"]
+        }
+        for b in backups
+    ]
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
