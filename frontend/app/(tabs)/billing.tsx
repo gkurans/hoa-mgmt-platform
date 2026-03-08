@@ -539,6 +539,106 @@ export default function BillingScreen() {
     }
   };
 
+  // Monthly Dues handlers
+  const handleGenerateMonthlyDues = async () => {
+    // Validate required fields
+    if (!newMonthlyDues.maintenance_total && !newMonthlyDues.repairs_capital_total && 
+        !newMonthlyDues.security_total && !newMonthlyDues.other_total &&
+        !newMonthlyDues.hoa_dues_water && !newMonthlyDues.hoa_dues_electricity) {
+      showMessage('Error', 'Please enter at least one expense amount', true);
+      return;
+    }
+    
+    setIsSubmitting(true);
+    try {
+      const result = await generateMonthlyDues({
+        year: newMonthlyDues.year,
+        month: newMonthlyDues.month,
+        maintenance_total: parseFloat(newMonthlyDues.maintenance_total) || 0,
+        repairs_capital_total: parseFloat(newMonthlyDues.repairs_capital_total) || 0,
+        security_total: parseFloat(newMonthlyDues.security_total) || 0,
+        other_total: parseFloat(newMonthlyDues.other_total) || 0,
+        hoa_dues_water: parseFloat(newMonthlyDues.hoa_dues_water) || 0,
+        hoa_dues_electricity: parseFloat(newMonthlyDues.hoa_dues_electricity) || 0,
+        notes: newMonthlyDues.notes,
+      });
+      
+      // Show preview
+      setMonthlyDuesPreview(result.data);
+      setShowMonthlyDuesModal(false);
+      setShowMonthlyDuesPreviewModal(true);
+      fetchData();
+    } catch (error: any) {
+      showMessage('Error', error.response?.data?.detail || 'Failed to generate monthly dues', true);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handlePostMonthlyDues = async (duesId: string) => {
+    showConfirm(
+      'Post Monthly Dues',
+      'This will create charges for all units. This action cannot be undone. Continue?',
+      async () => {
+        setIsSubmitting(true);
+        try {
+          await postMonthlyDues(duesId);
+          showMessage('Success', 'Monthly dues posted to all units!');
+          setShowMonthlyDuesPreviewModal(false);
+          setMonthlyDuesPreview(null);
+          fetchData();
+        } catch (error: any) {
+          showMessage('Error', error.response?.data?.detail || 'Failed to post monthly dues', true);
+        } finally {
+          setIsSubmitting(false);
+        }
+      }
+    );
+  };
+
+  const handleDeleteMonthlyDues = async (duesId: string) => {
+    showConfirm(
+      'Delete Monthly Dues',
+      'Are you sure you want to delete this draft? This cannot be undone.',
+      async () => {
+        setIsSubmitting(true);
+        try {
+          await deleteMonthlyDues(duesId);
+          showMessage('Success', 'Monthly dues deleted successfully!');
+          fetchData();
+        } catch (error: any) {
+          showMessage('Error', error.response?.data?.detail || 'Failed to delete monthly dues', true);
+        } finally {
+          setIsSubmitting(false);
+        }
+      }
+    );
+  };
+
+  const openMonthlyDuesDetail = (dues: MonthlyDues) => {
+    setSelectedMonthlyDues(dues);
+    setMonthlyDuesPreview({
+      id: dues.id,
+      period: dues.period,
+      summary: {
+        total_units: dues.unit_count,
+        condos: dues.condo_count,
+        shops: dues.shop_count,
+        total_amount: dues.total_amount,
+        condo_hoa_share: dues.condo_hoa_share,
+        shop_hoa_share: dues.shop_hoa_share,
+      },
+      unit_allocations: dues.unit_allocations,
+    });
+    setShowMonthlyDuesPreviewModal(true);
+  };
+
+  const getMonthName = (month: number) => {
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 
+                   'July', 'August', 'September', 'October', 'November', 'December'];
+    return months[month - 1] || '';
+  };
+
   // Category management handlers
   const openEditCategoryModal = (category: Category) => {
     setSelectedCategory(category);
