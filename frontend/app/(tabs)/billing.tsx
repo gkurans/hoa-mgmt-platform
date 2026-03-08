@@ -2503,4 +2503,48 @@ const styles = StyleSheet.create({
     color: '#d97706',
     fontWeight: '500',
   },
+  categoryListItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  categoryInfo: {
+    flex: 1,
+  },
+  categoryName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  categoryDescription: {
+    fontSize: 13,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  editCategoryButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#eff6ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  manageCategoriesButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#f1f5f9',
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  manageCategoriesText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748b',
+  },
 });
