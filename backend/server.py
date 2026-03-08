@@ -1579,7 +1579,9 @@ async def update_payment(payment_id: str, update_data: PaymentUpdate, user: dict
         "payment_date": payment["payment_date"],
         "method": payment["method"],
         "reference": payment.get("reference", ""),
-        "notes": payment.get("notes", "")
+        "notes": payment.get("notes", ""),
+        "category_id": payment.get("category_id", ""),
+        "category_name": payment.get("category_name", "")
     }
     
     update_dict = {}
@@ -1599,6 +1601,13 @@ async def update_payment(payment_id: str, update_data: PaymentUpdate, user: dict
         update_dict["reference"] = update_data.reference
     if update_data.notes is not None:
         update_dict["notes"] = update_data.notes
+    
+    # Handle category change
+    if update_data.category_id is not None:
+        category = await db.categories.find_one({"_id": ObjectId(update_data.category_id)})
+        if category:
+            update_dict["category_id"] = update_data.category_id
+            update_dict["category_name"] = category["name"]
     
     update_dict["updated_at"] = datetime.utcnow()
     update_dict["updated_by"] = str(user["_id"])
