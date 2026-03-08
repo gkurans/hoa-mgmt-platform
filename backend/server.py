@@ -1266,6 +1266,304 @@ async def delete_annual_setup(setup_id: str, user: dict = Depends(require_admin)
     
     return {"message": f"Annual setup for {setup['year']} deleted successfully"}
 
+# ============== MONTHLY DUES GENERATOR ==============
+
+@api_router.post("/billing/monthly-dues")
+async def generate_monthly_dues(dues_input: MonthlyDuesInput, user: dict = Depends(require_admin)):
+    """Generate monthly HOA dues with mixed distribution types:
+    - Equal distribution for: Maintenance, Repairs & Capital, Security, Other
+    - Formula-based distribution for: HOA Dues (water/electricity)
+    
+    Formula (Kerala HOA):
+    - Condo Share = W/5 + 0.40*E/5 + 0.60*E/8
+    - Shop Share = 0.60*E/8
+    """
+    period = f"{dues_input.year}-{str(dues_input.month).zfill(2)}"
+    
+    # Check if allocation already exists for this period
+    existing = await db.monthly_dues.find_one({"period": period})
+    if existing:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Monthly dues already generated for {period}. Delete existing allocation first."
+        )
+    
+    # Get all active units
+    units = await db.units.find({"status": "active"}).to_list(100)
+    if not units:
+        raise HTTPException(status_code=400, detail="No active units found")
+    
+    # Count unit types
+    condos = [u for u in units if u["unit_type"] == "condo"]
+    shops = [u for u in units if u["unit_type"] == "shop"]
+    total_units = len(units)
+    
+    # Calculate equal distribution amounts per unit
+    equal_categories = {
+        "maintenance": dues_input.maintenance_total / total_units if total_units > 0 else 0,
+        "repairs_capital": dues_input.repairs_capital_total / total_units if total_units > 0 else 0,
+        "security": dues_input.security_total / total_units if total_units > 0 else 0,
+        "other": dues_input.other_total / total_units if total_units > 0 else 0,
+    }
+    
+    # Calculate formula-based HOA Dues distribution
+    W = dues_input.hoa_dues_water
+    E = dues_input.hoa_dues_electricity
+    
+    # Kerala HOA Formula
+    condo_hoa_share = (W / 5) + (0.40 * E / 5) + (0.60 * E / 8) if len(condos) > 0 else 0
+    shop_hoa_share = (0.60 * E / 8) if len(shops) > 0 else 0
+    
+    # Generate allocations for each unit
+    unit_allocations = []
+    total_allocated = 0
+    
+    for unit in units:
+        is_condo = unit["unit_type"] == "condo"
+        
+        # Equal distribution amounts
+        maintenance_amt = round(equal_categories["maintenance"], 2)
+        repairs_amt = round(equal_categories["repairs_capital"], 2)
+        security_amt = round(equal_categories["security"], 2)
+        other_amt = round(equal_categories["other"], 2)
+        
+        # Formula-based HOA Dues
+        hoa_dues_amt = round(condo_hoa_share if is_condo else shop_hoa_share, 2)
+        
+        unit_total = maintenance_amt + repairs_amt + security_amt + other_amt + hoa_dues_amt
+        total_allocated += unit_total
+        
+        unit_allocations.append({
+            "unit_id": str(unit["_id"]),
+            "unit_display": unit["display_name"],
+            "unit_type": unit["unit_type"],
+            "maintenance": maintenance_amt,
+            "repairs_capital": repairs_amt,
+            "security": security_amt,
+            "other": other_amt,
+            "hoa_dues": hoa_dues_amt,
+            "total": round(unit_total, 2)
+        })
+    
+    # Calculate total input
+    total_input = (
+        dues_input.maintenance_total + 
+        dues_input.repairs_capital_total + 
+        dues_input.security_total + 
+        dues_input.other_total + 
+        W + E
+    )
+    
+    # Save the monthly dues record
+    dues_doc = {
+        "year": dues_input.year,
+        "month": dues_input.month,
+        "period": period,
+        "maintenance_total": dues_input.maintenance_total,
+        "repairs_capital_total": dues_input.repairs_capital_total,
+        "security_total": dues_input.security_total,
+        "other_total": dues_input.other_total,
+        "hoa_dues_water": W,
+        "hoa_dues_electricity": E,
+        "condo_hoa_share": round(condo_hoa_share, 2),
+        "shop_hoa_share": round(shop_hoa_share, 2),
+        "total_amount": round(total_allocated, 2),
+        "unit_count": total_units,
+        "condo_count": len(condos),
+        "shop_count": len(shops),
+        "unit_allocations": unit_allocations,
+        "status": "draft",
+        "notes": dues_input.notes,
+        "created_by": str(user["_id"]),
+        "created_at": datetime.utcnow()
+    }
+    
+    result = await db.monthly_dues.insert_one(dues_doc)
+    
+    await log_audit("monthly_dues", str(result.inserted_id), "create", None, 
+                   {"period": period, "total": round(total_allocated, 2)}, str(user["_id"]))
+    
+    return {
+        "id": str(result.inserted_id),
+        "period": period,
+        "message": f"Monthly dues generated for {period}",
+        "summary": {
+            "total_units": total_units,
+            "condos": len(condos),
+            "shops": len(shops),
+            "total_amount": round(total_allocated, 2),
+            "condo_hoa_share": round(condo_hoa_share, 2),
+            "shop_hoa_share": round(shop_hoa_share, 2)
+        },
+        "unit_allocations": unit_allocations
+    }
+
+@api_router.get("/billing/monthly-dues")
+async def get_monthly_dues_list(year: int = None, user: dict = Depends(get_current_user)):
+    """Get list of monthly dues allocations"""
+    query = {}
+    if year:
+        query["year"] = year
+    
+    dues_list = await db.monthly_dues.find(query).sort([("year", -1), ("month", -1)]).to_list(100)
+    
+    result = []
+    for d in dues_list:
+        creator = await db.users.find_one({"_id": ObjectId(d["created_by"])})
+        result.append({
+            "id": str(d["_id"]),
+            "period": d["period"],
+            "year": d["year"],
+            "month": d["month"],
+            "total_amount": d["total_amount"],
+            "unit_count": d["unit_count"],
+            "status": d["status"],
+            "created_by": creator["name"] if creator else "Unknown",
+            "created_at": d["created_at"].isoformat()
+        })
+    
+    return result
+
+@api_router.get("/billing/monthly-dues/{dues_id}")
+async def get_monthly_dues_detail(dues_id: str, user: dict = Depends(get_current_user)):
+    """Get detailed monthly dues allocation"""
+    dues = await db.monthly_dues.find_one({"_id": ObjectId(dues_id)})
+    if not dues:
+        raise HTTPException(status_code=404, detail="Monthly dues not found")
+    
+    creator = await db.users.find_one({"_id": ObjectId(dues["created_by"])})
+    
+    return {
+        "id": str(dues["_id"]),
+        "period": dues["period"],
+        "year": dues["year"],
+        "month": dues["month"],
+        "maintenance_total": dues["maintenance_total"],
+        "repairs_capital_total": dues["repairs_capital_total"],
+        "security_total": dues["security_total"],
+        "other_total": dues["other_total"],
+        "hoa_dues_water": dues["hoa_dues_water"],
+        "hoa_dues_electricity": dues["hoa_dues_electricity"],
+        "condo_hoa_share": dues["condo_hoa_share"],
+        "shop_hoa_share": dues["shop_hoa_share"],
+        "total_amount": dues["total_amount"],
+        "unit_count": dues["unit_count"],
+        "condo_count": dues["condo_count"],
+        "shop_count": dues["shop_count"],
+        "unit_allocations": dues["unit_allocations"],
+        "status": dues["status"],
+        "notes": dues.get("notes", ""),
+        "created_by": creator["name"] if creator else "Unknown",
+        "created_at": dues["created_at"].isoformat()
+    }
+
+@api_router.post("/billing/monthly-dues/{dues_id}/post")
+async def post_monthly_dues(dues_id: str, user: dict = Depends(require_admin)):
+    """Post monthly dues to unit ledgers (create charges)"""
+    dues = await db.monthly_dues.find_one({"_id": ObjectId(dues_id)})
+    if not dues:
+        raise HTTPException(status_code=404, detail="Monthly dues not found")
+    
+    if dues["status"] == "posted":
+        raise HTTPException(status_code=400, detail="Monthly dues already posted")
+    
+    period = dues["period"]
+    
+    # Get or create categories
+    category_map = {}
+    category_names = ["Maintenance", "Repairs & Capital", "Security", "Other", "HOA Dues"]
+    
+    for cat_name in category_names:
+        cat = await db.categories.find_one({"name": cat_name})
+        if not cat:
+            # Create the category
+            cat_doc = {
+                "name": cat_name,
+                "description": f"{cat_name} category",
+                "recurring": True,
+                "frequency": "monthly",
+                "applies_to": "all",
+                "created_at": datetime.utcnow()
+            }
+            result = await db.categories.insert_one(cat_doc)
+            cat = await db.categories.find_one({"_id": result.inserted_id})
+        category_map[cat_name.lower().replace(" & ", "_").replace(" ", "_")] = str(cat["_id"])
+    
+    # Create charges for each unit
+    charges_created = 0
+    
+    for allocation in dues["unit_allocations"]:
+        unit_id = allocation["unit_id"]
+        
+        # Create individual charges for each category
+        charge_entries = [
+            ("maintenance", "Maintenance", allocation["maintenance"]),
+            ("repairs_capital", "Repairs & Capital", allocation["repairs_capital"]),
+            ("security", "Security", allocation["security"]),
+            ("other", "Other", allocation["other"]),
+            ("hoa_dues", "HOA Dues", allocation["hoa_dues"]),
+        ]
+        
+        for cat_key, cat_name, amount in charge_entries:
+            if amount > 0:
+                charge_doc = {
+                    "unit_id": unit_id,
+                    "category_id": category_map[cat_key],
+                    "category_name": cat_name,
+                    "amount": amount,
+                    "description": f"{cat_name} - {period}",
+                    "due_date": f"{dues['year']}-{str(dues['month']).zfill(2)}-15",
+                    "period": period,
+                    "source": "monthly_dues",
+                    "monthly_dues_id": dues_id,
+                    "status": "unpaid",
+                    "created_at": datetime.utcnow()
+                }
+                await db.charges.insert_one(charge_doc)
+                charges_created += 1
+        
+        # Update unit balance
+        await db.units.update_one(
+            {"_id": ObjectId(unit_id)},
+            {"$inc": {"current_balance": allocation["total"]}}
+        )
+    
+    # Mark as posted
+    await db.monthly_dues.update_one(
+        {"_id": ObjectId(dues_id)},
+        {
+            "$set": {
+                "status": "posted",
+                "posted_by": str(user["_id"]),
+                "posted_at": datetime.utcnow()
+            }
+        }
+    )
+    
+    await log_audit("monthly_dues", dues_id, "post", {"status": "draft"}, 
+                   {"status": "posted", "charges_created": charges_created}, str(user["_id"]))
+    
+    return {
+        "message": f"Monthly dues for {period} posted successfully",
+        "charges_created": charges_created,
+        "total_amount": dues["total_amount"]
+    }
+
+@api_router.delete("/billing/monthly-dues/{dues_id}")
+async def delete_monthly_dues(dues_id: str, user: dict = Depends(require_admin)):
+    """Delete monthly dues (only if not posted)"""
+    dues = await db.monthly_dues.find_one({"_id": ObjectId(dues_id)})
+    if not dues:
+        raise HTTPException(status_code=404, detail="Monthly dues not found")
+    
+    if dues["status"] == "posted":
+        raise HTTPException(status_code=400, detail="Cannot delete posted monthly dues")
+    
+    await db.monthly_dues.delete_one({"_id": ObjectId(dues_id)})
+    await log_audit("monthly_dues", dues_id, "delete", {"period": dues["period"]}, None, str(user["_id"]))
+    
+    return {"message": f"Monthly dues for {dues['period']} deleted successfully"}
+
 @api_router.post("/billing/annual-setup/{setup_id}/post")
 async def post_annual_charges(setup_id: str, monthly_split: bool = False, user: dict = Depends(require_admin)):
     """Post annual charges to all unit ledgers"""
