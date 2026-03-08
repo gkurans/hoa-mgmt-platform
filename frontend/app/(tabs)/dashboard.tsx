@@ -172,6 +172,27 @@ export default function DashboardScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
+        {/* Environment Badge */}
+        {systemStatus && (
+          <View style={[
+            styles.envBadge,
+            { backgroundColor: systemStatus.is_production ? '#dcfce7' : '#fef3c7' }
+          ]}>
+            <Ionicons 
+              name={systemStatus.is_production ? "shield-checkmark" : "warning"} 
+              size={16} 
+              color={systemStatus.is_production ? '#16a34a' : '#d97706'} 
+            />
+            <Text style={[
+              styles.envBadgeText,
+              { color: systemStatus.is_production ? '#16a34a' : '#d97706' }
+            ]}>
+              {systemStatus.environment.toUpperCase()}
+              {systemStatus.write_protection && !systemStatus.is_production && ' (READ-ONLY)'}
+            </Text>
+          </View>
+        )}
+
         <View style={styles.header}>
           <Text style={styles.greeting}>Welcome back,</Text>
           <Text style={styles.userName}>{user?.name}</Text>
@@ -179,6 +200,29 @@ export default function DashboardScreen() {
             <Text style={styles.roleText}>{user?.role.toUpperCase()}</Text>
           </View>
         </View>
+
+        {/* Admin Actions - Backup Button */}
+        {isAdmin && (
+          <Card style={styles.adminActionsCard}>
+            <Text style={styles.adminActionsTitle}>Admin Actions</Text>
+            <View style={styles.adminActionsRow}>
+              <TouchableOpacity 
+                style={styles.backupButton}
+                onPress={handleBackup}
+                disabled={backupLoading}
+              >
+                <Ionicons 
+                  name={backupLoading ? "hourglass" : "cloud-download"} 
+                  size={20} 
+                  color="#fff" 
+                />
+                <Text style={styles.backupButtonText}>
+                  {backupLoading ? 'Creating...' : 'Create Backup'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Card>
+        )}
 
         {/* Show admin dashboard view for ALL users (read-only for owners) */}
         {adminData ? (
