@@ -3155,4 +3155,170 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#64748b',
   },
+  // Monthly Dues specific styles
+  periodSubtext: {
+    fontSize: 13,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  monthSelectorCard: {
+    marginBottom: 16,
+    padding: 16,
+  },
+  monthYearRow: {
+    gap: 16,
+  },
+  monthSelector: {
+    marginBottom: 12,
+  },
+  monthButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  monthButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: '#f1f5f9',
+    minWidth: 48,
+    alignItems: 'center',
+  },
+  monthButtonActive: {
+    backgroundColor: '#2563eb',
+  },
+  monthButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  monthButtonTextActive: {
+    color: '#fff',
+  },
+  yearSelector: {
+    marginBottom: 8,
+  },
+  yearButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  yearButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+  },
+  yearButtonActive: {
+    backgroundColor: '#2563eb',
+  },
+  yearButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  yearButtonTextActive: {
+    color: '#fff',
+  },
+  sectionLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1e293b',
+    marginTop: 16,
+    marginBottom: 4,
+  },
+  sectionSubtext: {
+    fontSize: 13,
+    color: '#64748b',
+    marginBottom: 12,
+  },
+  dividerSection: {
+    marginVertical: 16,
+  },
+  previewSummaryCard: {
+    marginBottom: 16,
+    backgroundColor: '#f8fafc',
+  },
+  previewSummaryTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1e293b',
+    marginBottom: 12,
+  },
+  previewSummaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  previewLabel: {
+    fontSize: 14,
+    color: '#64748b',
+  },
+  previewValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  previewValueLarge: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#2563eb',
+  },
+  allocationCard: {
+    marginBottom: 12,
+    padding: 12,
+  },
+  allocationHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  allocationUnit: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  allocationType: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748b',
+    marginTop: 2,
+  },
+  allocationTotal: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#16a34a',
+  },
+  allocationBreakdown: {
+    backgroundColor: '#f1f5f9',
+    borderRadius: 8,
+    padding: 10,
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  breakdownLabel: {
+    fontSize: 12,
+    color: '#64748b',
+  },
+  breakdownValue: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  previewActions: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+  },
+  previewWarning: {
+    fontSize: 12,
+    color: '#d97706',
+    textAlign: 'center',
+    marginTop: 12,
+  },
 });
