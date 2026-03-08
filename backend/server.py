@@ -198,6 +198,36 @@ class BillInputYearResponse(BaseModel):
     approved_at: Optional[datetime] = None
     created_at: datetime
 
+# Monthly Dues Generator Models
+class MonthlyDuesInput(BaseModel):
+    year: int
+    month: int  # 1-12
+    maintenance_total: float = 0.0
+    repairs_capital_total: float = 0.0
+    security_total: float = 0.0
+    other_total: float = 0.0
+    hoa_dues_water: float = 0.0  # Water portion for formula
+    hoa_dues_electricity: float = 0.0  # Electricity portion for formula
+    notes: str = ""
+
+class MonthlyDuesResponse(BaseModel):
+    id: str
+    year: int
+    month: int
+    period: str  # "2025-03"
+    maintenance_total: float
+    repairs_capital_total: float
+    security_total: float
+    other_total: float
+    hoa_dues_water: float
+    hoa_dues_electricity: float
+    total_amount: float
+    status: str  # draft, posted
+    unit_allocations: List[dict]
+    notes: str
+    created_by: str
+    created_at: datetime
+
 # Charge Models
 class ChargeCreate(BaseModel):
     unit_id: str
