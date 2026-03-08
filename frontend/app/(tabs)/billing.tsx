@@ -408,6 +408,14 @@ export default function BillingScreen() {
       showMessage('Error', 'Please fill vendor name, category, and amount', true);
       return;
     }
+    
+    // Validate description is provided when "Other" category is selected
+    const selectedCategory = categories.find(c => c.id === newExpense.category_id);
+    if (selectedCategory?.name?.toLowerCase() === 'other' && !newExpense.description.trim()) {
+      showMessage('Error', 'Please provide a description for "Other" category expenses', true);
+      return;
+    }
+    
     setIsSubmitting(true);
     try {
       await createExpense({
