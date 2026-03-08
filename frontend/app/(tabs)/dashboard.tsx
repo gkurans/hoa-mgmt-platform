@@ -62,6 +62,14 @@ export default function DashboardScreen() {
 
   const fetchData = useCallback(async () => {
     try {
+      // Fetch system status first
+      try {
+        const statusResponse = await getSystemStatus();
+        setSystemStatus(statusResponse.data);
+      } catch (e) {
+        // System status is optional
+      }
+      
       // Fetch admin dashboard for all users (now accessible to everyone for transparency)
       const response = await getAdminDashboard();
       setAdminData(response.data);
@@ -90,6 +98,61 @@ export default function DashboardScreen() {
   const onRefresh = () => {
     setRefreshing(true);
     fetchData();
+  };
+
+  const handleBackup = async () => {
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm('Create a backup of all HOA data?');
+      if (!confirmed) return;
+    } else {
+      return new Promise((resolve) => {
+        Alert.alert(
+          'Create Backup',
+          'This will create a backup of all HOA data. Continue?',
+          [
+            { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+            { text: 'Create Backup', onPress: () => resolve(true) },
+          ]
+        );
+      }).then(async (confirmed) => {
+        if (!confirmed) return;
+        await performBackup();
+      });
+    }
+    await performBackup();
+  };
+
+  const performBackup = async () => {
+    setBackupLoading(true);
+    try {
+      const response = await createBackup();
+      const backupData = response.data;
+      
+      // Create downloadable file
+      if (Platform.OS === 'web') {
+        const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `hoa_backup_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        alert('Backup created and downloaded successfully!');
+      } else {
+        Alert.alert('Success', 'Backup created successfully! Check your downloads.');
+      }
+    } catch (error: any) {
+      const msg = error.response?.data?.detail || 'Failed to create backup';
+      if (Platform.OS === 'web') {
+        alert(msg);
+      } else {
+        Alert.alert('Error', msg);
+      }
+    } finally {
+      setBackupLoading(false);
+    }
   };
 
   const formatCurrency = (amount: number) => {
