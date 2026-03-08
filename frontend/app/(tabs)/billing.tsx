@@ -241,6 +241,19 @@ export default function BillingScreen() {
     period: '',
   });
 
+  // Monthly Dues form state
+  const [newMonthlyDues, setNewMonthlyDues] = useState({
+    year: new Date().getFullYear(),
+    month: new Date().getMonth() + 1,
+    maintenance_total: '',
+    repairs_capital_total: '',
+    security_total: '',
+    other_total: '',
+    hoa_dues_water: '',
+    hoa_dues_electricity: '',
+    notes: '',
+  });
+
   // Edit form states (with mandatory reason)
   const [editPaymentForm, setEditPaymentForm] = useState({
     amount: '',
