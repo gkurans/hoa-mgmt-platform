@@ -1563,6 +1563,7 @@ class PaymentUpdate(BaseModel):
     method: Optional[str] = None
     reference: Optional[str] = None
     notes: Optional[str] = None
+    category_id: Optional[str] = None  # Allow changing category
     reason: str  # Required for any edit
 
 @api_router.put("/payments/{payment_id}", response_model=PaymentResponse)
