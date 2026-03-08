@@ -2351,4 +2351,23 @@ const styles = StyleSheet.create({
     minHeight: 80,
     textAlignVertical: 'top',
   },
+  highlightedField: {
+    backgroundColor: '#fffbeb',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#fcd34d',
+    marginVertical: 8,
+  },
+  otherCategoryNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  otherCategoryNoticeText: {
+    fontSize: 13,
+    color: '#d97706',
+    fontWeight: '500',
+  },
 });
