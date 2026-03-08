@@ -4,34 +4,91 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
-// Retry configuration
-const MAX_RETRIES = 3;
-const RETRY_DELAY = 2000; // 2 seconds
+// Enhanced Retry configuration for server wake-up
+const MAX_RETRIES = 6; // More retries for sleeping server
+const INITIAL_RETRY_DELAY = 3000; // 3 seconds initial
+const MAX_RETRY_DELAY = 15000; // 15 seconds max
+const WAKE_UP_TIMEOUT = 60000; // 60 seconds total wake-up timeout
 
 // Helper to delay
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Server status tracking
-let isServerWakingUp = false;
-let serverWakeUpListeners: (() => void)[] = [];
-
-export const notifyServerWakeUp = () => {
-  isServerWakingUp = true;
-  serverWakeUpListeners.forEach(listener => listener());
+// Calculate exponential backoff delay
+const getRetryDelay = (retryCount: number): number => {
+  const exponentialDelay = INITIAL_RETRY_DELAY * Math.pow(1.5, retryCount);
+  return Math.min(exponentialDelay, MAX_RETRY_DELAY);
 };
 
-export const notifyServerReady = () => {
-  isServerWakingUp = false;
+// Server status tracking with events
+type ServerStatus = 'ready' | 'waking' | 'error';
+let currentServerStatus: ServerStatus = 'ready';
+let serverStatusListeners: ((status: ServerStatus, message?: string) => void)[] = [];
+let wakeUpStartTime: number | null = null;
+
+export const getServerStatus = (): ServerStatus => currentServerStatus;
+
+export const setServerStatus = (status: ServerStatus, message?: string) => {
+  currentServerStatus = status;
+  if (status === 'waking' && !wakeUpStartTime) {
+    wakeUpStartTime = Date.now();
+  } else if (status === 'ready') {
+    wakeUpStartTime = null;
+  }
+  serverStatusListeners.forEach(listener => listener(status, message));
 };
 
-export const onServerWakeUp = (callback: () => void) => {
-  serverWakeUpListeners.push(callback);
+export const onServerStatusChange = (callback: (status: ServerStatus, message?: string) => void) => {
+  serverStatusListeners.push(callback);
+  // Immediately notify of current status
+  callback(currentServerStatus);
   return () => {
-    serverWakeUpListeners = serverWakeUpListeners.filter(l => l !== callback);
+    serverStatusListeners = serverStatusListeners.filter(l => l !== callback);
   };
 };
 
-export const isServerWaking = () => isServerWakingUp;
+// Legacy exports for backward compatibility
+export const notifyServerWakeUp = () => setServerStatus('waking', 'Server is starting up...');
+export const notifyServerReady = () => setServerStatus('ready');
+export const isServerWaking = () => currentServerStatus === 'waking';
+
+// Health check function to wake server
+export const checkServerHealth = async (): Promise<boolean> => {
+  try {
+    const response = await axios.get(`${API_URL}/api/health`, { timeout: 10000 });
+    return response.status === 200;
+  } catch {
+    return false;
+  }
+};
+
+// Proactive server wake-up function
+export const wakeUpServer = async (): Promise<boolean> => {
+  setServerStatus('waking', 'Connecting to server...');
+  
+  const startTime = Date.now();
+  let attempt = 0;
+  
+  while (Date.now() - startTime < WAKE_UP_TIMEOUT) {
+    attempt++;
+    const message = attempt === 1 
+      ? 'Connecting to server...' 
+      : `Server is waking up... (attempt ${attempt})`;
+    setServerStatus('waking', message);
+    
+    const isHealthy = await checkServerHealth();
+    if (isHealthy) {
+      setServerStatus('ready');
+      return true;
+    }
+    
+    // Wait before next attempt with exponential backoff
+    const waitTime = getRetryDelay(attempt);
+    await delay(waitTime);
+  }
+  
+  setServerStatus('error', 'Server is taking too long to respond');
+  return false;
+};
 
 const api = axios.create({
   baseURL: `${API_URL}/api`,
@@ -50,10 +107,10 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
-// Response interceptor - handle errors with retry logic
+// Response interceptor - handle errors with intelligent retry logic
 api.interceptors.response.use(
   (response) => {
-    notifyServerReady();
+    setServerStatus('ready');
     return response;
   },
   async (error: AxiosError) => {
@@ -62,32 +119,57 @@ api.interceptors.response.use(
     // Initialize retry count
     if (!config._retryCount) {
       config._retryCount = 0;
+      config._startTime = Date.now();
     }
     
-    // Check if we should retry
+    // Check if this looks like a server sleep issue
+    const isServerSleepError = (
+      !error.response || // Network error (server not responding)
+      error.response.status === 502 || // Bad Gateway
+      error.response.status === 503 || // Service Unavailable
+      error.response.status === 504 || // Gateway Timeout
+      error.code === 'ECONNABORTED' || // Timeout
+      error.code === 'ERR_NETWORK' || // Network error
+      error.code === 'ECONNREFUSED' // Connection refused
+    );
+    
+    // Check if we should retry (within time limit and retry count)
+    const timeElapsed = Date.now() - config._startTime;
     const shouldRetry = (
+      isServerSleepError &&
       config._retryCount < MAX_RETRIES &&
-      (
-        !error.response || // Network error
-        error.response.status === 502 || // Bad Gateway (server waking up)
-        error.response.status === 503 || // Service Unavailable
-        error.response.status === 504 || // Gateway Timeout
-        error.code === 'ECONNABORTED' || // Timeout
-        error.code === 'ERR_NETWORK' // Network error
-      )
+      timeElapsed < WAKE_UP_TIMEOUT
     );
     
     if (shouldRetry) {
       config._retryCount++;
       
-      // Notify that server might be waking up
-      if (config._retryCount === 1) {
-        notifyServerWakeUp();
-        console.log('Server appears to be starting. Retrying...');
-      }
+      // Update status for user feedback
+      const message = config._retryCount === 1
+        ? 'Server is starting up, please wait...'
+        : `Reconnecting to server... (attempt ${config._retryCount}/${MAX_RETRIES})`;
+      setServerStatus('waking', message);
       
-      // Wait before retrying
-      await delay(RETRY_DELAY * config._retryCount);
+      console.log(`[API Retry] Attempt ${config._retryCount}/${MAX_RETRIES} - ${message}`);
+      
+      // Wait with exponential backoff
+      const waitTime = getRetryDelay(config._retryCount);
+      await delay(waitTime);
+      
+      // Retry the request
+      return api(config);
+    }
+    
+    // If we exhausted retries, update status
+    if (isServerSleepError) {
+      setServerStatus('error', 'Unable to connect to server. Please try again later.');
+    } else {
+      setServerStatus('ready'); // Other errors don't affect server status
+    }
+    
+    return Promise.reject(error);
+  }
+);
       
       // Retry the request
       return api(config);
