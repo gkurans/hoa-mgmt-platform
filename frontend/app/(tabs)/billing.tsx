@@ -610,7 +610,18 @@ export default function BillingScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Billing & Finance</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text style={styles.title}>Billing & Finance</Text>
+          {isAdminUser && (
+            <TouchableOpacity
+              style={styles.manageCategoriesButton}
+              onPress={() => setShowCategoryModal(true)}
+            >
+              <Ionicons name="settings-outline" size={16} color="#64748b" />
+              <Text style={styles.manageCategoriesText}>Categories</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {isAdminUser && (
