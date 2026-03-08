@@ -170,15 +170,6 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-      
-      // Retry the request
-      return api(config);
-    }
-    
-    notifyServerReady();
-    return Promise.reject(error);
-  }
-);
 
 // Units
 export const getUnits = () => api.get('/units');
