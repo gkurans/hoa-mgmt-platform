@@ -943,6 +943,19 @@ async def reset_owner_password(owner_id: str, user: dict = Depends(require_admin
 @api_router.get("/categories", response_model=List[CategoryResponse])
 async def get_categories(user: dict = Depends(get_current_user)):
     categories = await db.categories.find().to_list(100)
+    
+    # Sort categories: "HOA Dues" first, then alphabetically
+    def sort_key(c):
+        name = c["name"].lower()
+        if name == "hoa dues":
+            return (0, name)  # First priority
+        elif name == "other":
+            return (2, name)  # Last among standard categories
+        else:
+            return (1, name)  # Alphabetically in between
+    
+    categories.sort(key=sort_key)
+    
     return [
         CategoryResponse(
             id=str(c["_id"]),
