@@ -1622,6 +1622,30 @@ export default function BillingScreen() {
                 placeholder="Optional"
               />
               
+              {/* Category Selection */}
+              <Text style={styles.sectionLabel}>Change Category</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
+                <View style={styles.categoryButtons}>
+                  {categories.map(cat => (
+                    <TouchableOpacity
+                      key={cat.id}
+                      style={[
+                        styles.categoryButton,
+                        editPaymentForm.category_id === cat.id && styles.categoryButtonActive
+                      ]}
+                      onPress={() => setEditPaymentForm({ ...editPaymentForm, category_id: cat.id })}
+                    >
+                      <Text style={[
+                        styles.categoryButtonText,
+                        editPaymentForm.category_id === cat.id && styles.categoryButtonTextActive
+                      ]}>
+                        {cat.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+              
               <View style={styles.reasonSection}>
                 <Text style={styles.reasonLabel}>Reason for Edit *</Text>
                 <TextInput
