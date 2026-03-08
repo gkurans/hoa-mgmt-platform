@@ -1,194 +1,186 @@
 <analysis>
 
 **original_problem_statement**:
-The user initially requested an HOA management system MVP. This has now expanded to include significant new features and bug fixes.
+The user's initial request for an HOA management system MVP has evolved significantly. The current session focused on resolving a large number of user-reported bugs and implementing several new, complex features related to owner management, board governance, billing, and system stability.
 
-**Phase 1-2 (Now mostly complete):**
-- Fix various bugs related to login, profile data, and UI.
-- Implement robust owner read-only access (RBAC).
-- Implement owner profile editing.
-- Add dashboard financial metrics.
-- Enhance the audit log and enforce ledger integrity with a Reason for change on financial edits.
-- Implement a full Document Management module with upload/download capabilities.
-
-**New Requirements (Phase 3 - In Progress):**
-1.  **File/Folder Rename:** Admins must be able to rename files and folders in the Document Management module.
-2.  **Shared Email Support:** The system must allow multiple owner profiles to share the same email address.
-3.  **Association Members & Office Holder Module (Board):**
-    - A new Board tab in the bottom navigation.
-    - Admins can manage President and Treasurer roles for each year (starting 2025).
-    - Admins can manage the list of Committee Members.
-    - Display static content for role responsibilities and election processes.
-    - Maintain a historical record of office holders.
-    - Allow admins to record official decisions/resolutions.
-    - Owners have read-only access to all information in this module.
+**Key User Requests Addressed in this Session:**
+1.  **Owner Management:**
+    -   Allow admins to edit owner information directly from the Unit tab.
+    -   Fix a bug where the Add Owner form pre-populated phone/password fields.
+    -   Implement the ability to assign multiple owners to a single unit.
+    -   Fix the button for removing an owner from a unit.
+2.  **Board & Committee Management:**
+    -   Fix a critical bug where board-related APIs were not registered, making the module non-functional.
+    -   Ensure all *current* owners automatically appear in the committee list.
+    -   Implement  fields for all owners.
+    -   Enforce that only current owners are eligible to be committee members and hold officer roles (President, Treasurer).
+    -   Enforce that only one President and one Treasurer can exist per year, and handle mid-year replacements.
+3.  **Billing & Categories:**
+    -   Add an Other category for expenses, with a mandatory description field.
+    -   Add an HOA Dues category for payments and prioritize it in the UI.
+    -   Implement full CRUD (Create, Read, Update, Delete) functionality for all billing categories.
+    -   Allow admins to change the category of already-recorded payment and expense transactions.
+    -   Implement the backend for a new Monthly Dues Generator that uses mixed distribution methods (equal vs. formula-based).
+4.  **System Stability & Data Integrity:**
+    -   Fix a recurring mobile file download bug using a more reliable method.
+    -   Improve mobile UI responsiveness for the Billing tabs.
+    -   Implement an API retry mechanism with exponential backoff to handle server sleep/wake cycles.
+    -   Implement a global UI overlay to inform the user when the server is waking up.
+    -   Add a server-side error logging middleware.
+    -   Implement critical data integrity safeguards: an environment flag (/), write-protection in non-production environments, and a manual database backup endpoint for admins.
 
 **User's preferred language**: English
 
 **what currently exists?**
-A full-stack Expo (React Native) and FastAPI application. The application includes modules for Unit/Owner Management, Billing, an Audit Log (Activity), a full-featured Document Management system, and a newly created Board module for managing association members and office holders. Key bugs related to login, file uploads (web & mobile), and file downloads (web & mobile) have been resolved.
+A full-stack Expo (React Native) and FastAPI application with modules for Units/Owners, a heavily enhanced Billing system, an Audit Log, Document Management, and a Board/Association module.
+
+Key recent additions include:
+-   **Multi-owner support** for units.
+-   **Ownership lifecycle management** with start and end dates.
+-   **Advanced governance rules** for the Board module, filtering members and officers by current ownership status.
+-   **Full CRUD for billing categories**, including the ability to edit categories on existing transactions.
+-   **System stability features**: A global Server Waking Up overlay, API retry logic, and server-side error logging.
+-   **Data integrity safeguards**: A dashboard UI showing the current environment (Production/Development), admin-only database backup functionality, and backend write-protection for non-production environments.
+-   The **backend for a mixed-distribution Monthly Dues Generator** has been completed.
 
 **Last working item**:
--   Last item agent was working: The user provided feedback on the initial implementation of the Board module, reporting missing tabs (History, Decisions), a lack of content in the Roles section, and a desire for admins to manually add committee members. The agent performed a complete rewrite of the  file to address all these points and restarted the backend and frontend services.
--   Status: USER VERIFICATION PENDING
--   Agent Testing Done: Y (via screenshot tool, which confirmed the UI elements are now visible)
--   Which testing method agent to use? manual testing by user. The user needs to verify the new Board module functionality.
+-   Last item agent was working: Implementing a Monthly HOA Dues Generator with mixed distribution types. The agent successfully built and tested the backend endpoints ( and ) which correctly calculate charges based on equal distribution for some categories and a pre-existing formula for HOA Dues. The frontend UI for this feature has not been started.
+-   Status: IN PROGRESS
+-   Agent Testing Done: Y (Backend API tested via curl)
+-   Which testing method agent to use? frontend testing agent (After the UI is built to test the full flow)
 -   User Testing Done: N
 
 **All Pending/In progress Issue list**:
--   Issue 1: Verify Board Module Rework (P0)
--   Issue 2: Verify File/Folder Rename UI Fix (P1)
--   Issue 3: Mobile download is not working (P2)
+-   **Issue 1: Red X Button Not Removing Owner from Unit (P1)**: The agent implemented a fix using  for web, but the user has not verified it.
+-   **Issue 2: Verify File Download Fix (P1)**: This is a recurring issue. The agent implemented a new fix using  in . This is pending user verification on mobile.
+-   **Issue 3: Verify Board Module Rework & Governance Rules (P2)**: The agent fixed a critical API routing bug and implemented complex business logic for filtering committee members and officers based on ownership dates. The user has not verified this end-to-end functionality.
+-   **Issue 4: Verify Add Owner Form Default Value Fix (P2)**: The agent added  to prevent browser autofill. This is pending user verification.
 
 **Issues Detail:**
--   **Issue 1: Verify Board Module Rework**
-    -   **Description:** The user reported several issues with the first version of the Board module: missing tabs, empty content, and incorrect committee member logic. The agent rewrote the  file to fix this. The user needs to confirm the fixes.
-    -   **Attempted fixes:** The agent completely overwrote  with a new version that includes all required tabs, static content for roles/responsibilities, and UI for all sub-sections. The backend service was also restarted to ensure API endpoints were available.
-    -   **Next debug checklist:**
-        1.  User to log in as admin.
-        2.  Navigate to the Board tab.
-        3.  Verify that all sub-tabs are visible: Leadership, Committee, Roles, Elections, History, Decisions.
-        4.  Verify the Roles tab displays the responsibilities for President, Treasurer, etc.
-        5.  Verify the UI for managing Committee members, History, and Decisions is present.
-    -   **Why fix this issue and what will be achieved with the fix?** This will complete the implementation of the Association Members module as per the user's latest feedback.
+-   **Issue 1: Red X Button Not Removing Owner from Unit**
+    -   **Description:** The user reported the remove owner button in the  tab was not working. The agent diagnosed this as a web compatibility issue with .
+    -   **Attempted fixes:** In , the  function was modified to use  on the web platform, while keeping  for native.
+    -   **Next debug checklist:** User needs to log in as admin, navigate to the Units tab, find a unit with multiple owners, and click the 'X' button to remove one.
+    -   **Why fix this issue and what will be achieved with the fix?** This will restore the core functionality of managing unit ownership.
     -   **Status:** USER VERIFICATION PENDING
     -   **Is recurring issue?** N
     -   **Should Test frontend/backend/both after fix?** Frontend (manual user testing).
     -   **Blocked on other issue:** None.
 
--   **Issue 2: Verify File/Folder Rename UI Fix**
-    -   **Description:** The user reported that after clicking the rename icon for a file, the modal appeared with only a Cancel button, and no way to confirm the new name.
-    -   **Attempted fixes:** The agent identified that the styles for the Rename (confirm) button were missing from the stylesheet in . The styles were added. The agent also attempted to improve the click handler for the folder rename icon to prevent accidental navigation.
-    -   **Next debug checklist:**
-        1.  User to log in as admin.
-        2.  Navigate to the Docs tab.
-        3.  Click the pencil icon next to a folder or file.
-        4.  Verify the Rename modal now shows both a Cancel and a Rename button.
-        5.  Test the full rename functionality.
-    -   **Why fix this issue and what will be achieved with the fix?** This will make the file/folder rename feature fully functional.
-    -   **Status:** USER VERIFICATION PENDING
-    -   **Is recurring issue?** N
-    -   **Should Test frontend/backend/both after fix?** Frontend (manual user testing).
-    -   **Blocked on other issue:** None.
-
--   **Issue 3: Mobile download is not working**
-    -   **Description:** The user reported that the mobile download is not working. The agent attempted a fix by rewriting the  function to use  with an auth header and then save the file, but this broke the code. The agent then corrected the implementation to properly use  to get the blob and  to save it, which should work.
-    -   **Attempted fixes:** The  in  was rewritten to use a -based approach for mobile, ensuring the  header is sent. It fetches the file content and saves it to the device's local file system.
-    -   **Next debug checklist:**
-        1.  User to test on a mobile device via Expo Go.
-        2.  Log in, navigate to Docs.
-        3.  Click on a file and tap the Download button.
-        4.  Verify the file downloads successfully.
-    -   **Why fix this issue and what will be achieved with the fix?** This will restore critical download functionality for mobile users.
-    -   **Status:** IN PROGRESS
-    -   **Is recurring issue?** Y
-    -   **Should Test frontend/backend/both after fix?** Frontend (manual user testing on mobile).
-    -   **Blocked on other issue:** None.
+-   **Issue 2, 3, 4** are all pending user verification of the fixes implemented during this session. The agent should confirm these with the user before proceeding to new tasks.
 
 **In progress Task List**:
-None. All current work is categorized as issue fixes/verification.
+-   **Task 1: Implement Frontend for Monthly Dues Generator (P0)**
+    -   **Description:** The backend for generating monthly dues with mixed distribution is complete. The next step is to build the user interface for it in the Billing module.
+    -   **Where to resume:** . A new section/modal needs to be created where an admin can input the total amounts for each category (Maintenance, Repairs, Security, Other, HOA Dues) for a specific month, preview the calculated allocations per unit, and then post the charges.
+    -   **What will be achieved with this?** This will complete a major user-requested feature, allowing admins to automate the complex monthly billing process.
+    -   **Status:** IN PROGRESS
+    -   **Should Test frontend/backend/both after fix?** Both.
+    -   **Blocked on something:** None.
 
 **Upcoming and Future Tasks**
--   **(P1) Frontend for Ledger Integrity:** Implement the UI in  to require a Reason for change when an admin edits a payment or expense. The backend APIs are already complete. This was the original next task before being interrupted by new user requests.
+-   **(P1) Frontend for Ledger Integrity:** Implement the UI in  to require a Reason for change when an admin edits a payment or expense. The backend APIs are already complete. This is a high-priority task from a previous session that was deferred.
 -   **(P2) Board Module - Decision Recording Flow:** The UI to Record New Decision exists, but the full flow (modal, form, API call, attachment upload) needs to be implemented and tested.
 -   **(P3) Report Year Selector Fix:** A minor, long-standing UI bug where the year-end report screen shows irrelevant years needs to be addressed.
 -   **(P3) Document Version Control:** Implement versioning for uploaded documents.
 -   **(P3) Enhance Audit Log Filters**: Add a filter by  to the Activity tab UI.
 
 **Completed work in this session**
--   **File Handling (Cross-Platform):**
-    -   Fixed file upload for the web by correcting the  header handling in .
-    -   Fixed authenticated file download for the web by using a blob-based approach.
-    -   Fixed mobile file upload by implementing a platform-specific  header.
--   **User Manuals:**
-    -   Created and generated 11-page Owner and 16-page Admin PDF manuals using a Python script.
-    -   Uploaded the manuals to the in-app Document Management system.
--   **Mobile UI Fix:**
-    -   Resolved the bottom tab bar being obscured by Android system navigation buttons by correctly using .
--   **New Features (Phase 1 & 2):**
-    -   **File/Folder Rename:** Implemented backend endpoints and frontend UI (modals, buttons) for renaming.
-    -   **Shared Email Support:** Modified the backend to allow multiple owners to use the same email address.
-    -   **Association Board Module:**
-        -   Created backend models and API endpoints for managing board members and decisions.
-        -   Created a new Board tab and screen .
-        -   Implemented a complete UI with sub-navigation for Leadership, Committee, Roles, History, and Decisions, based on user feedback.
+-   **Owner & Unit Management:**
+    -   Enabled editing owner details from the  tab.
+    -   Implemented multi-owner support per unit (backend: , frontend: ).
+    -   Fixed  form defaults by using .
+-   **Board Governance & Logic:**
+    -   Fixed critical API routing bug in  by moving .
+    -   Implemented  and  for owners (backend: , frontend: ).
+    -   Enforced business logic so only *current* owners are listed as committee members and are eligible for officer roles.
+-   **Billing & Categories:**
+    -   Implemented full CRUD for billing categories ().
+    -   Added the ability to change the category of existing payments and expenses.
+    -   Added HOA Dues and Other categories with special UI/validation rules.
+    -   Implemented the backend for the Monthly Dues Generator ().
+-   **System Stability & Safeguards:**
+    -   Fixed mobile file download in  using .
+    -   Improved API reliability with Axios interceptors for retries ().
+    -   Created a global Server Waking Up overlay ( and ).
+    -   Implemented data integrity safeguards: environment flags, write-protection, and a database backup endpoint ( and ).
 
 **Earlier issues found/mentioned but not fixed**
--   The frontend UI for requiring a Reason for change when an admin edits a financial record (Ledger Integrity) has not been implemented.
--   The minor UI fix for the report's year selector has been on the backlog since the beginning.
+-   **Issue 1: Frontend for Ledger Integrity**
+    -   **Debug checklist:** The task involves modifying the Edit Payment and Edit Expense modals in  to include a mandatory Reason for change text input. The  and  functions in  must be updated to send this reason.
+    -   **Why to solve this issue and what will be achieved with this?** This is critical for financial audit trails and accountability, a core requirement from the initial PRD.
+    -   **Should Test frontend/backend/both after fix:** Both.
+    -   **Is recurring issue?** N
 
 **Known issue recurrence from previous fork**
--   **Issue recurrence:** File download functionality has been a recurring problem, with separate fixes needed for web, mobile, and authentication.
--   **Recurrence count:** At least 3 major attempts/fixes.
--   **Status:** IN PROGRESS (latest mobile download fix is pending user verification).
+-   **Issue recurrence:** Mobile file download functionality has been a persistent problem.
+-   **Recurrence count:** At least 4.
+-   **Status:** IN PROGRESS. The latest fix uses  and is pending user verification.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Backend:** FastAPI, Pydantic, Motor (async MongoDB), JWT.
--   **Frontend:** Expo, React Native, TypeScript, Expo Router.
--   **State Management:** Zustand.
--   **File Handling:**
-    -    for selection.
-    -   -specific logic for uploads/downloads.
-    -    and  for mobile file operations.
--   **UI Components:**  for dropdowns.
--   **PDF Generation:**  (Python).
+-   **Backend:** FastAPI, Pydantic, Motor, JWT. Global error logging and write-protection middleware.
+-   **Frontend:** Expo, React Native, TypeScript, Zustand, Axios.
+-   **Key Patterns:**
+    -   **API Retries:** Axios interceptors for handling transient network errors and server sleep states.
+    -   **Global State Management:** A global Zustand store () to manage the Server is waking up overlay across the app.
+    -   **Platform-specific UI:** Using  to provide different confirmation dialogs ( vs ).
+    -   **Data Safeguards:** Using environment variables to control application behavior (e.g., write-protection).
 
 **key DB schema**
--   **users, units, owners, charges, payments, expenses, audit_logs, folders, documents** (Unchanged)
--   **board_members:** 
--   **decisions:** 
--   **committee_members:** 
+-   **users:** Now includes , .
+-   **units:**  has been replaced by .
+-   **error_logs:** New collection for storing server-side errors.
+-   **categories:** Now fully editable via API.
 
 **All files of reference**
--   **/app/frontend/app/(tabs)/board.tsx**: Newly created file for the Association Members module. It was completely rewritten to address user feedback.
--   **/app/frontend/app/(tabs)/documents.tsx**: Heavily modified to add rename functionality, fix download issues for both web and mobile, and add a rename modal.
--   **/app/frontend/src/services/api.ts**: Modified to add a platform-specific  function and new functions for the Board module and renaming.
--   **/app/backend/server.py**: Heavily modified to add endpoints for renaming, shared email logic, and the entire Board module (members, decisions).
--   **/app/frontend/app/(tabs)/_layout.tsx**: Modified to add the Board tab and fix safe area issues.
--   **/app/generate_manuals.py**: New Python script for generating PDF manuals.
+-   **/app/backend/server.py**: The monolithic backend file. Received major updates for almost every feature, including API routing fixes, new endpoints for multi-owner support, ownership date logic, category CRUD, the monthly dues generator, and data integrity safeguards.
+-   **/app/frontend/app/(tabs)/units.tsx**: The main file for unit and owner management. Overhauled to support displaying multiple owners, editing owners, adding/removing owners from a unit, and managing ownership dates.
+-   **/app/frontend/app/(tabs)/billing.tsx**: The main billing file. Heavily modified to add full CRUD for categories and allow editing categories on existing transactions. This file is the target for the upcoming dues generator UI.
+-   **/app/frontend/src/services/api.ts**: The central API service file. Updated to include retry logic via Axios interceptors and new functions for every feature implemented.
+-   **/app/frontend/src/components/ServerStatusOverlay.tsx**: A new, critical UI component that provides a global overlay to handle server wake-up notifications.
+-   **/app/frontend/app/_layout.tsx**: The root layout file, modified to wrap the entire app with the .
+-   **/app/frontend/app/(tabs)/dashboard.tsx**: Modified to display the environment badge and backup functionality, part of the new data integrity features.
 
 **Critical Info for New Agent**
-1.  **Immediate Priority:** Your first actions should be to communicate with the user to verify the latest fixes for the **Board module** and the **file rename modal**. The agent has implemented fixes, but the user has not confirmed them.
-2.  **Mobile Download:** The mobile download functionality has been a recurring issue. The latest fix in  uses a -based approach. Be prepared to debug this further if the user reports it's still not working.
-3.  **Next Major Task:** Once the current issues are verified as resolved, the highest priority upcoming task is to implement the **frontend for Ledger Integrity** in . This involves adding a mandatory Reason for Edit field when an admin modifies a payment or expense. The backend is already complete for this feature.
-4.  **Platform-Specific Code:** Pay close attention to the platform-specific logic in  (for downloads) and  (for uploads). This pattern is critical for maintaining both web and mobile compatibility.
-5.  **User Contradictions:** Note that the user requested admins be able to add committee members, which contradicts the initial PRD. The agent's latest  rewrite aimed to address this. Confirm with the user if the new implementation is correct before making further changes.
+1.  **Immediate Priority:** The immediate task is to build the **frontend UI for the Monthly Dues Generator** in . The backend and API functions are already complete and tested. You need to create a UI for admins to input monthly totals, preview the allocation, and post the charges.
+2.  **Verify, Then Build:** Before starting new work, communicate with the user to verify the long list of fixes from this session (multi-owner, remove owner button, board logic, file download, etc.). Many are marked USER VERIFICATION PENDING. Confirming these will prevent rework.
+3.  **Data Safeguards are Active:** The application now has a  flag in . If it's not set to , write operations (POST, PUT, DELETE) will be blocked by the backend. The dashboard also displays the current environment. Be aware of this during testing.
+4.  **Next Major Task (Post-Dues):** Once the dues generator is complete, the highest priority upcoming task is the **Ledger Integrity UI**—requiring a Reason for change on financial edits. This is a critical, long-pending feature.
 
 **documents created in this job**
 -   
--   
--   
--   
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  : Admin must be able to add committee members. Populate roles and responsibilities as content in the board section... i donot see history and decision section - **(IN PROGRESS - Fix implemented, pending user verification)**
-2.  : now work on phase 2 - **(COMPLETED - Phase 2 work started)**
-3.  : File rename button is there but after rename there is no UI to finalize it, i see only a cancel option - **(IN PROGRESS - Fix implemented, pending user verification)**
-4.  : Asks for the link to test. - **(COMPLETED)**
-5.  : User confirms the plan for new features (Yes, Board, 2025 onwards, Yes). - **(COMPLETED)**
-6.  : User provides a large PRD for new features (Rename, Shared Email, Board Module). - **(IN PROGRESS)**
-7.  : download is not working - **(IN PROGRESS - Latest fix is pending user verification)**
-8.  : mobile down load doesnot work - **(IN PROGRESS - Part of the recurring download issue)**
-9.  : mobile upload is failing - **(RESOLVED)**
-10. : for mobile android the bottom bar at bottom is overriden by S22 back , minimise and close buttons - **(RESOLVED)**
+1.  : **Request:** Detailed PRD for a Monthly HOA Dues Generator with mixed distribution types. (IN PROGRESS - Backend Done)
+2.  : **Request:** Ability to change the category for already-posted payment and expense transactions. (DONE)
+3.  : **Request:** Enable editing and deleting of Payment/Expense categories. (DONE)
+4.  : **Request:** Add HOA Dues as a payment category. (DONE)
+5.  : **Request:** Add Other as an expense category, requiring a description. (DONE)
+6.  : **Report:** Web & Mobile apps fail when the backend agent is asleep; retry logic is broken. (IN PROGRESS - Fix implemented with global overlay, pending user verification)
+7.  : **Approval:** User approves implementing all 3 proposed data integrity safeguards. (DONE)
+8.  : **Question:** User asks for more details on the recommended data safeguards. (COMPLETED - Agent explained)
+9.  : **Question:** User asks if they will lose production data when forking. (COMPLETED - Agent analyzed risk and proposed safeguards)
+10. : **Prioritization:** User provides the priority order for implementing the Stabilization Requirements. (COMPLETED - Agent followed the order)
 
 **Project Health Check:**
--   **Broken**: Mobile file download is likely still broken or at least unverified. The rename modal UI was broken and the fix is unverified.
+-   **Broken**: Several features are in a USER VERIFICATION PENDING state. The mobile file download fix and the web-based remove-owner fix are unconfirmed.
 -   **Mocked**: None.
 
 **3rd Party Integrations**
--   : Client-side file selection.
--   : Used for saving downloaded files on mobile.
--   : Used for opening/sharing downloaded files on mobile.
--   : UI component for dropdowns.
+-   : For file selection.
+-   : For mobile file downloads.
+-   : For sharing downloaded files.
+-   : UI for dropdowns.
+-   : Used for all API calls, now with custom interceptors for retry logic.
 
 **Testing status**
--   **Testing agent used after significant changes:** YES, the  was used extensively, but it struggled with complex click interactions, leading to the need for manual user testing.
+-   **Testing agent used after significant changes:** NO (Agent performed manual curl tests on the backend).
+-   **Troubleshoot agent used after agent stuck in loop:** NO.
 -   **Test files created:** None.
--   **Known regressions:** The file upload/download functionality has regressed and been fixed multiple times across different platforms (web/mobile).
+-   **Known regressions:** File downloads have been a recurring regression. The latest fix is the most robust yet but needs verification.
 
 **Credentials to test flow:**
 -   **Admin:**
@@ -196,6 +188,8 @@ None. All current work is categorized as issue fixes/verification.
     -   Password: 
 
 **What agent forgot to execute**
--   The critical Ledger Integrity task (adding Reason for Edit to the billing UI) was started but then paused and never completed due to new, more urgent user requests. This remains the most important piece of unfinished work from the original plan.
+-   The Ledger Integrity task (adding Reason for Edit to billing UI) remains unimplemented from the original plan.
+-   The Board Module - Decision Recording Flow is still pending implementation.
+-   The Report Year Selector Fix has been on the backlog and not addressed.
 
 </analysis>
