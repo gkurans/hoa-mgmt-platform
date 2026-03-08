@@ -944,6 +944,135 @@ export default function BillingScreen() {
           </View>
         )}
 
+        {/* MONTHLY DUES TAB */}
+        {activeTab === 'monthly' && isAdminUser && (
+          <View>
+            <Button
+              title="Generate Monthly Dues"
+              onPress={() => {
+                setNewMonthlyDues({
+                  year: new Date().getFullYear(),
+                  month: new Date().getMonth() + 1,
+                  maintenance_total: '',
+                  repairs_capital_total: '',
+                  security_total: '',
+                  other_total: '',
+                  hoa_dues_water: '',
+                  hoa_dues_electricity: '',
+                  notes: '',
+                });
+                setShowMonthlyDuesModal(true);
+              }}
+              style={styles.newButton}
+            />
+
+            <Card style={styles.formulaCard}>
+              <Text style={styles.formulaTitle}>Monthly Dues Distribution</Text>
+              <View style={styles.formulaBox}>
+                <Text style={styles.formulaLabel}>Equal Distribution:</Text>
+                <Text style={styles.formulaText}>Maintenance, Repairs, Security, Other</Text>
+              </View>
+              <View style={styles.formulaBox}>
+                <Text style={styles.formulaLabel}>Formula-Based (HOA Dues):</Text>
+                <Text style={styles.formulaText}>Condo = W/5 + 0.40E/5 + 0.60E/8</Text>
+                <Text style={styles.formulaText}>Shop = 0.60E/8</Text>
+              </View>
+            </Card>
+
+            <Text style={styles.sectionTitle}>Monthly Dues History</Text>
+            {monthlyDuesList.length === 0 ? (
+              <Card style={styles.emptyCard}>
+                <Ionicons name="calendar" size={48} color="#94a3b8" />
+                <Text style={styles.emptyText}>No monthly dues generated yet</Text>
+                <Text style={styles.emptySubtext}>
+                  Generate monthly dues to allocate expenses across units
+                </Text>
+              </Card>
+            ) : (
+              monthlyDuesList.map(dues => (
+                <Card key={dues.id} style={styles.setupCard}>
+                  <View style={styles.setupHeader}>
+                    <View>
+                      <Text style={styles.setupYear}>{getMonthName(dues.month)} {dues.year}</Text>
+                      <Text style={styles.periodSubtext}>{dues.period}</Text>
+                    </View>
+                    <View style={[
+                      styles.statusBadge,
+                      {
+                        backgroundColor: dues.status === 'posted' ? '#dcfce7' : '#fef3c7'
+                      }
+                    ]}>
+                      <Text style={[
+                        styles.statusText,
+                        {
+                          color: dues.status === 'posted' ? '#16a34a' : '#d97706'
+                        }
+                      ]}>
+                        {dues.status.toUpperCase()}
+                      </Text>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.setupDetails}>
+                    <View style={styles.setupRow}>
+                      <Text style={styles.setupLabel}>Total Units:</Text>
+                      <Text style={styles.setupValue}>{dues.unit_count} ({dues.condo_count} condos, {dues.shop_count} shops)</Text>
+                    </View>
+                    <View style={styles.setupRow}>
+                      <Text style={styles.setupLabel}>Total Amount:</Text>
+                      <Text style={styles.shareValue}>{formatCurrency(dues.total_amount)}</Text>
+                    </View>
+                    <View style={styles.divider} />
+                    <View style={styles.setupRow}>
+                      <Text style={styles.setupLabel}>Condo HOA Share:</Text>
+                      <Text style={styles.setupValue}>{formatCurrency(dues.condo_hoa_share)}</Text>
+                    </View>
+                    <View style={styles.setupRow}>
+                      <Text style={styles.setupLabel}>Shop HOA Share:</Text>
+                      <Text style={styles.setupValue}>{formatCurrency(dues.shop_hoa_share)}</Text>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.setupActions}>
+                    <TouchableOpacity
+                      style={styles.iconButton}
+                      onPress={() => openMonthlyDuesDetail(dues)}
+                    >
+                      <Ionicons name="eye" size={18} color="#2563eb" />
+                    </TouchableOpacity>
+                    
+                    {dues.status !== 'posted' && (
+                      <>
+                        <TouchableOpacity
+                          style={[styles.iconButton, styles.deleteButton]}
+                          onPress={() => handleDeleteMonthlyDues(dues.id)}
+                        >
+                          <Ionicons name="trash" size={18} color="#dc2626" />
+                        </TouchableOpacity>
+                        <Button
+                          title="Post Charges"
+                          onPress={() => handlePostMonthlyDues(dues.id)}
+                          variant="primary"
+                          size="small"
+                          style={styles.actionButton}
+                          loading={isSubmitting}
+                        />
+                      </>
+                    )}
+                  </View>
+                  
+                  {dues.status === 'posted' && (
+                    <View style={styles.postedNote}>
+                      <Ionicons name="checkmark-circle" size={16} color="#16a34a" />
+                      <Text style={styles.postedNoteText}>Charges posted to all units</Text>
+                    </View>
+                  )}
+                </Card>
+              ))
+            )}
+          </View>
+        )}
+
         {/* PAYMENTS TAB */}
         {activeTab === 'payments' && (
           <View>
