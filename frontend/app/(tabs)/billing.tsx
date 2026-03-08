@@ -1832,6 +1832,260 @@ export default function BillingScreen() {
         </View>
       </Modal>
 
+      {/* MONTHLY DUES CREATION MODAL */}
+      <Modal
+        visible={showMonthlyDuesModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowMonthlyDuesModal(false)}
+      >
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
+          <ScrollView>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Generate Monthly Dues</Text>
+                <TouchableOpacity onPress={() => setShowMonthlyDuesModal(false)}>
+                  <Ionicons name="close" size={24} color="#64748b" />
+                </TouchableOpacity>
+              </View>
+
+              <Card style={styles.monthSelectorCard}>
+                <View style={styles.monthYearRow}>
+                  <View style={styles.monthSelector}>
+                    <Text style={styles.fieldLabel}>Month</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                      <View style={styles.monthButtons}>
+                        {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
+                          <TouchableOpacity
+                            key={month}
+                            style={[
+                              styles.monthButton,
+                              newMonthlyDues.month === month && styles.monthButtonActive
+                            ]}
+                            onPress={() => setNewMonthlyDues({ ...newMonthlyDues, month })}
+                          >
+                            <Text style={[
+                              styles.monthButtonText,
+                              newMonthlyDues.month === month && styles.monthButtonTextActive
+                            ]}>
+                              {getMonthName(month).slice(0, 3)}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </ScrollView>
+                  </View>
+                  <View style={styles.yearSelector}>
+                    <Text style={styles.fieldLabel}>Year</Text>
+                    <View style={styles.yearButtons}>
+                      {[new Date().getFullYear() - 1, new Date().getFullYear(), new Date().getFullYear() + 1].map(year => (
+                        <TouchableOpacity
+                          key={year}
+                          style={[
+                            styles.yearButton,
+                            newMonthlyDues.year === year && styles.yearButtonActive
+                          ]}
+                          onPress={() => setNewMonthlyDues({ ...newMonthlyDues, year })}
+                        >
+                          <Text style={[
+                            styles.yearButtonText,
+                            newMonthlyDues.year === year && styles.yearButtonTextActive
+                          ]}>
+                            {year}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                </View>
+              </Card>
+
+              <Text style={styles.sectionLabel}>Equal Distribution Categories</Text>
+              <Text style={styles.sectionSubtext}>
+                These amounts will be divided equally among all units
+              </Text>
+              
+              <Input
+                label="Maintenance Total (₹)"
+                value={newMonthlyDues.maintenance_total}
+                onChangeText={(text) => setNewMonthlyDues({ ...newMonthlyDues, maintenance_total: text })}
+                placeholder="e.g., 10000"
+                keyboardType="decimal-pad"
+              />
+              <Input
+                label="Repairs & Capital Total (₹)"
+                value={newMonthlyDues.repairs_capital_total}
+                onChangeText={(text) => setNewMonthlyDues({ ...newMonthlyDues, repairs_capital_total: text })}
+                placeholder="e.g., 5000"
+                keyboardType="decimal-pad"
+              />
+              <Input
+                label="Security Total (₹)"
+                value={newMonthlyDues.security_total}
+                onChangeText={(text) => setNewMonthlyDues({ ...newMonthlyDues, security_total: text })}
+                placeholder="e.g., 8000"
+                keyboardType="decimal-pad"
+              />
+              <Input
+                label="Other Expenses Total (₹)"
+                value={newMonthlyDues.other_total}
+                onChangeText={(text) => setNewMonthlyDues({ ...newMonthlyDues, other_total: text })}
+                placeholder="e.g., 2000"
+                keyboardType="decimal-pad"
+              />
+
+              <View style={styles.dividerSection}>
+                <View style={styles.divider} />
+              </View>
+
+              <Text style={styles.sectionLabel}>Formula-Based HOA Dues</Text>
+              <Text style={styles.sectionSubtext}>
+                Water & Electricity are distributed using the Kerala HOA formula
+              </Text>
+              
+              <Input
+                label="Water Total - W (₹)"
+                value={newMonthlyDues.hoa_dues_water}
+                onChangeText={(text) => setNewMonthlyDues({ ...newMonthlyDues, hoa_dues_water: text })}
+                placeholder="e.g., 50000"
+                keyboardType="decimal-pad"
+              />
+              <Input
+                label="Electricity Total - E (₹)"
+                value={newMonthlyDues.hoa_dues_electricity}
+                onChangeText={(text) => setNewMonthlyDues({ ...newMonthlyDues, hoa_dues_electricity: text })}
+                placeholder="e.g., 100000"
+                keyboardType="decimal-pad"
+              />
+
+              <Input
+                label="Notes (Optional)"
+                value={newMonthlyDues.notes}
+                onChangeText={(text) => setNewMonthlyDues({ ...newMonthlyDues, notes: text })}
+                placeholder="Any additional notes..."
+                multiline
+              />
+
+              <Button
+                title="Generate & Preview"
+                onPress={handleGenerateMonthlyDues}
+                loading={isSubmitting}
+                disabled={isSubmitting}
+              />
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* MONTHLY DUES PREVIEW MODAL */}
+      <Modal
+        visible={showMonthlyDuesPreviewModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowMonthlyDuesPreviewModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: '95%' }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {monthlyDuesPreview?.period ? `${getMonthName(parseInt(monthlyDuesPreview.period.split('-')[1]))} ${monthlyDuesPreview.period.split('-')[0]}` : 'Monthly Dues Preview'}
+              </Text>
+              <TouchableOpacity onPress={() => setShowMonthlyDuesPreviewModal(false)}>
+                <Ionicons name="close" size={24} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+
+            {monthlyDuesPreview && (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <Card style={styles.previewSummaryCard}>
+                  <Text style={styles.previewSummaryTitle}>Summary</Text>
+                  <View style={styles.previewSummaryRow}>
+                    <Text style={styles.previewLabel}>Total Units:</Text>
+                    <Text style={styles.previewValue}>{monthlyDuesPreview.summary?.total_units}</Text>
+                  </View>
+                  <View style={styles.previewSummaryRow}>
+                    <Text style={styles.previewLabel}>Condos / Shops:</Text>
+                    <Text style={styles.previewValue}>{monthlyDuesPreview.summary?.condos} / {monthlyDuesPreview.summary?.shops}</Text>
+                  </View>
+                  <View style={styles.previewSummaryRow}>
+                    <Text style={styles.previewLabel}>Total Amount:</Text>
+                    <Text style={styles.previewValueLarge}>{formatCurrency(monthlyDuesPreview.summary?.total_amount || 0)}</Text>
+                  </View>
+                  <View style={styles.divider} />
+                  <View style={styles.previewSummaryRow}>
+                    <Text style={styles.previewLabel}>Condo HOA Share:</Text>
+                    <Text style={styles.previewValue}>{formatCurrency(monthlyDuesPreview.summary?.condo_hoa_share || 0)}</Text>
+                  </View>
+                  <View style={styles.previewSummaryRow}>
+                    <Text style={styles.previewLabel}>Shop HOA Share:</Text>
+                    <Text style={styles.previewValue}>{formatCurrency(monthlyDuesPreview.summary?.shop_hoa_share || 0)}</Text>
+                  </View>
+                </Card>
+
+                <Text style={styles.sectionTitle}>Unit Allocations</Text>
+                {monthlyDuesPreview.unit_allocations?.map((allocation: any, index: number) => (
+                  <Card key={index} style={styles.allocationCard}>
+                    <View style={styles.allocationHeader}>
+                      <View>
+                        <Text style={styles.allocationUnit}>{allocation.unit_display}</Text>
+                        <Text style={styles.allocationType}>{allocation.unit_type.toUpperCase()}</Text>
+                      </View>
+                      <Text style={styles.allocationTotal}>{formatCurrency(allocation.total)}</Text>
+                    </View>
+                    <View style={styles.allocationBreakdown}>
+                      {allocation.maintenance > 0 && (
+                        <View style={styles.breakdownRow}>
+                          <Text style={styles.breakdownLabel}>Maintenance:</Text>
+                          <Text style={styles.breakdownValue}>{formatCurrency(allocation.maintenance)}</Text>
+                        </View>
+                      )}
+                      {allocation.repairs_capital > 0 && (
+                        <View style={styles.breakdownRow}>
+                          <Text style={styles.breakdownLabel}>Repairs:</Text>
+                          <Text style={styles.breakdownValue}>{formatCurrency(allocation.repairs_capital)}</Text>
+                        </View>
+                      )}
+                      {allocation.security > 0 && (
+                        <View style={styles.breakdownRow}>
+                          <Text style={styles.breakdownLabel}>Security:</Text>
+                          <Text style={styles.breakdownValue}>{formatCurrency(allocation.security)}</Text>
+                        </View>
+                      )}
+                      {allocation.other > 0 && (
+                        <View style={styles.breakdownRow}>
+                          <Text style={styles.breakdownLabel}>Other:</Text>
+                          <Text style={styles.breakdownValue}>{formatCurrency(allocation.other)}</Text>
+                        </View>
+                      )}
+                      {allocation.hoa_dues > 0 && (
+                        <View style={styles.breakdownRow}>
+                          <Text style={styles.breakdownLabel}>HOA Dues (W+E):</Text>
+                          <Text style={[styles.breakdownValue, { color: '#2563eb', fontWeight: '700' }]}>{formatCurrency(allocation.hoa_dues)}</Text>
+                        </View>
+                      )}
+                    </View>
+                  </Card>
+                ))}
+
+                {(!selectedMonthlyDues || selectedMonthlyDues.status !== 'posted') && (
+                  <View style={styles.previewActions}>
+                    <Button
+                      title="Post Charges to All Units"
+                      onPress={() => handlePostMonthlyDues(monthlyDuesPreview.id)}
+                      loading={isSubmitting}
+                      disabled={isSubmitting}
+                    />
+                    <Text style={styles.previewWarning}>
+                      This will create charges for all units. This action cannot be undone.
+                    </Text>
+                  </View>
+                )}
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
+
       {/* EDIT PAYMENT MODAL */}
       <Modal
         visible={showEditPaymentModal}
