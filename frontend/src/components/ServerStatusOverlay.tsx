@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
   Easing,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { onServerStatusChange, wakeUpServer, checkServerHealth } from '../services/api';
+import { onServerStatusChange, wakeUpServer, checkServerHealth, setServerStatus } from '../services/api';
 
 type ServerStatus = 'ready' | 'waking' | 'error';
 
@@ -22,28 +22,63 @@ export default function ServerStatusOverlay({ children }: ServerStatusOverlayPro
   const [status, setStatus] = useState<ServerStatus>('ready');
   const [message, setMessage] = useState<string>('');
   const [retrying, setRetrying] = useState(false);
+  const [showOverlay, setShowOverlay] = useState(true);
   const spinValue = useState(new Animated.Value(0))[0];
+  const initialCheckDone = useRef(false);
+  const healthCheckInterval = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // Subscribe to server status changes
     const unsubscribe = onServerStatusChange((newStatus, newMessage) => {
       setStatus(newStatus);
       setMessage(newMessage || '');
+      
+      // When status becomes ready, ensure overlay can be shown again later
+      if (newStatus === 'ready') {
+        setShowOverlay(true);
+      }
     });
 
-    // Initial health check when app loads
+    // Initial health check when app loads - only once
     const initialCheck = async () => {
-      const isHealthy = await checkServerHealth();
-      if (!isHealthy) {
-        // Server might be sleeping, try to wake it
+      if (initialCheckDone.current) return;
+      initialCheckDone.current = true;
+      
+      try {
+        const isHealthy = await checkServerHealth();
+        if (!isHealthy) {
+          // Server might be sleeping, try to wake it
+          wakeUpServer();
+        } else {
+          // Server is healthy, set status to ready
+          setServerStatus('ready');
+        }
+      } catch (error) {
+        console.log('Initial health check failed:', error);
+        // Try to wake up server
         wakeUpServer();
       }
     };
     
     initialCheck();
 
-    return unsubscribe;
-  }, []);
+    // Set up a background health check that runs periodically when waking
+    healthCheckInterval.current = setInterval(async () => {
+      if (status === 'waking') {
+        const isHealthy = await checkServerHealth();
+        if (isHealthy) {
+          setServerStatus('ready');
+        }
+      }
+    }, 5000);
+
+    return () => {
+      unsubscribe();
+      if (healthCheckInterval.current) {
+        clearInterval(healthCheckInterval.current);
+      }
+    };
+  }, [status]);
 
   // Spinning animation for loading icon
   useEffect(() => {
