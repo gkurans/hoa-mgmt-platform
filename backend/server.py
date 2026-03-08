@@ -161,6 +161,13 @@ class CategoryCreate(BaseModel):
     frequency: Literal["monthly", "quarterly", "annual", "one-time"] = "monthly"
     applies_to: Literal["condos", "shops", "all"] = "all"
 
+class CategoryUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    recurring: Optional[bool] = None
+    frequency: Optional[Literal["monthly", "quarterly", "annual", "one-time"]] = None
+    applies_to: Optional[Literal["condos", "shops", "all"]] = None
+
 class CategoryResponse(BaseModel):
     id: str
     name: str
