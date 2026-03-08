@@ -98,6 +98,7 @@ export default function ServerStatusOverlay({ children }: ServerStatusOverlayPro
 
   const handleRetry = async () => {
     setRetrying(true);
+    setShowOverlay(true);
     const success = await wakeUpServer();
     setRetrying(false);
     if (!success) {
@@ -105,13 +106,19 @@ export default function ServerStatusOverlay({ children }: ServerStatusOverlayPro
     }
   };
 
+  // Allow user to dismiss the overlay and continue anyway
+  const handleDismiss = () => {
+    setShowOverlay(false);
+    setServerStatus('ready');
+  };
+
   const spin = spinValue.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
   });
 
-  // Don't show overlay when server is ready
-  if (status === 'ready') {
+  // Don't show overlay when server is ready or user dismissed it
+  if (status === 'ready' || !showOverlay) {
     return <>{children}</>;
   }
 
@@ -119,7 +126,7 @@ export default function ServerStatusOverlay({ children }: ServerStatusOverlayPro
     <>
       {children}
       <Modal
-        visible={status !== 'ready'}
+        visible={status !== 'ready' && showOverlay}
         transparent={true}
         animationType="fade"
       >
@@ -136,6 +143,12 @@ export default function ServerStatusOverlay({ children }: ServerStatusOverlayPro
                   <ActivityIndicator size="small" color="#2563eb" />
                   <Text style={styles.progressText}>This may take up to 30 seconds</Text>
                 </View>
+                <TouchableOpacity
+                  style={styles.skipButton}
+                  onPress={handleDismiss}
+                >
+                  <Text style={styles.skipButtonText}>Continue Anyway</Text>
+                </TouchableOpacity>
               </>
             ) : (
               <>
@@ -155,6 +168,12 @@ export default function ServerStatusOverlay({ children }: ServerStatusOverlayPro
                       <Text style={styles.retryButtonText}>Retry Connection</Text>
                     </>
                   )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.skipButton}
+                  onPress={handleDismiss}
+                >
+                  <Text style={styles.skipButtonText}>Continue Anyway</Text>
                 </TouchableOpacity>
                 <Text style={styles.helpText}>
                   If this persists, please check your internet connection or try again later.
