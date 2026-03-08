@@ -137,12 +137,22 @@ export default function BillingScreen() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showEditPaymentModal, setShowEditPaymentModal] = useState(false);
   const [showEditExpenseModal, setShowEditExpenseModal] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [showEditCategoryModal, setShowEditCategoryModal] = useState(false);
   
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
   const [selectedSetup, setSelectedSetup] = useState<AnnualSetup | null>(null);
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [resultMessage, setResultMessage] = useState({ title: '', message: '', isError: false });
+  const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
+  
+  // Category edit form
+  const [editCategoryForm, setEditCategoryForm] = useState({
+    name: '',
+    description: '',
+  });
   const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
 
   // Form states
