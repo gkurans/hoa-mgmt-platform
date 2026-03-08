@@ -1288,10 +1288,14 @@ async def generate_monthly_dues(dues_input: MonthlyDuesInput, user: dict = Depen
             detail=f"Monthly dues already generated for {period}. Delete existing allocation first."
         )
     
-    # Get all active units
-    units = await db.units.find({"status": "active"}).to_list(100)
+    # Get all active units (status: active, owned, occupied)
+    units = await db.units.find({"status": {"$in": ["active", "owned", "occupied"]}}).to_list(100)
     if not units:
-        raise HTTPException(status_code=400, detail="No active units found")
+        # If no units with those statuses, get all units
+        units = await db.units.find().to_list(100)
+    
+    if not units:
+        raise HTTPException(status_code=400, detail="No units found")
     
     # Count unit types
     condos = [u for u in units if u["unit_type"] == "condo"]
