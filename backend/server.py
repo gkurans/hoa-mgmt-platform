@@ -977,17 +977,101 @@ async def get_categories(user: dict = Depends(get_current_user)):
 
 @api_router.post("/categories", response_model=CategoryResponse)
 async def create_category(cat_data: CategoryCreate, user: dict = Depends(require_admin)):
+    # Check for duplicate name
+    existing = await db.categories.find_one({"name": {"$regex": f"^{cat_data.name}$", "$options": "i"}})
+    if existing:
+        raise HTTPException(status_code=400, detail=f"Category '{cat_data.name}' already exists")
+    
     cat_doc = {
         **cat_data.dict(),
         "created_at": datetime.utcnow()
     }
     result = await db.categories.insert_one(cat_doc)
     
+    await log_audit("category", str(result.inserted_id), "create", None, cat_data.dict(), str(user["_id"]))
+    
     return CategoryResponse(
         id=str(result.inserted_id),
         **cat_data.dict(),
         created_at=cat_doc["created_at"]
     )
+
+@api_router.put("/categories/{category_id}", response_model=CategoryResponse)
+async def update_category(category_id: str, update_data: CategoryUpdate, user: dict = Depends(require_admin)):
+    """Update an existing category - Admin/Treasurer only"""
+    category = await db.categories.find_one({"_id": ObjectId(category_id)})
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+    
+    # Build update dict
+    update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
+    
+    if not update_dict:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    
+    # Check for duplicate name if name is being changed
+    if "name" in update_dict:
+        if not update_dict["name"].strip():
+            raise HTTPException(status_code=400, detail="Category name cannot be blank")
+        existing = await db.categories.find_one({
+            "name": {"$regex": f"^{update_dict['name']}$", "$options": "i"},
+            "_id": {"$ne": ObjectId(category_id)}
+        })
+        if existing:
+            raise HTTPException(status_code=400, detail=f"Category '{update_dict['name']}' already exists")
+    
+    # Store old values for audit
+    old_values = {
+        "name": category["name"],
+        "description": category.get("description", ""),
+        "recurring": category["recurring"],
+        "frequency": category["frequency"],
+        "applies_to": category["applies_to"]
+    }
+    
+    # Update the category
+    await db.categories.update_one({"_id": ObjectId(category_id)}, {"$set": update_dict})
+    
+    # Log the audit
+    await log_audit("category", category_id, "update", old_values, update_dict, str(user["_id"]))
+    
+    # Fetch updated category
+    updated = await db.categories.find_one({"_id": ObjectId(category_id)})
+    
+    return CategoryResponse(
+        id=str(updated["_id"]),
+        name=updated["name"],
+        description=updated.get("description", ""),
+        recurring=updated["recurring"],
+        frequency=updated["frequency"],
+        applies_to=updated["applies_to"],
+        created_at=updated["created_at"]
+    )
+
+@api_router.delete("/categories/{category_id}")
+async def delete_category(category_id: str, user: dict = Depends(require_admin)):
+    """Delete a category - Admin only. Will fail if category has linked payments/expenses."""
+    category = await db.categories.find_one({"_id": ObjectId(category_id)})
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+    
+    # Check if category has linked payments or expenses
+    payment_count = await db.payments.count_documents({"category_id": category_id})
+    expense_count = await db.expenses.count_documents({"category_id": category_id})
+    
+    if payment_count > 0 or expense_count > 0:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Cannot delete category with existing records ({payment_count} payments, {expense_count} expenses). Rename instead."
+        )
+    
+    # Log before delete
+    await log_audit("category", category_id, "delete", {"name": category["name"]}, None, str(user["_id"]))
+    
+    # Delete the category
+    await db.categories.delete_one({"_id": ObjectId(category_id)})
+    
+    return {"message": f"Category '{category['name']}' deleted successfully"}
 
 # ============== BILLING & ALLOCATION ROUTES ==============
 
