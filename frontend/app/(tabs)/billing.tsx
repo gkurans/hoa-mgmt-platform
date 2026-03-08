@@ -153,7 +153,6 @@ export default function BillingScreen() {
     name: '',
     description: '',
   });
-  const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
 
   // Form states
   const [newSetup, setNewSetup] = useState({
