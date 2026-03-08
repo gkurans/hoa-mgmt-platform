@@ -2878,6 +2878,23 @@ async def get_system_status():
 @api_router.post("/admin/backup")
 async def create_backup(user: dict = Depends(require_admin)):
     """Create a full database backup - Admin only"""
+    import json
+    
+    def serialize_value(value):
+        """Recursively serialize MongoDB documents to JSON-safe format"""
+        if isinstance(value, ObjectId):
+            return str(value)
+        elif isinstance(value, datetime):
+            return value.isoformat()
+        elif isinstance(value, dict):
+            return {k: serialize_value(v) for k, v in value.items()}
+        elif isinstance(value, list):
+            return [serialize_value(item) for item in value]
+        elif isinstance(value, bytes):
+            return value.decode('utf-8', errors='ignore')
+        else:
+            return value
+    
     backup_data = {
         "backup_timestamp": datetime.utcnow().isoformat(),
         "environment": ENVIRONMENT,
@@ -2896,20 +2913,8 @@ async def create_backup(user: dict = Depends(require_admin)):
         try:
             collection = db[collection_name]
             docs = await collection.find().to_list(None)
-            # Convert ObjectId to string for JSON serialization
-            serialized_docs = []
-            for doc in docs:
-                serialized_doc = {}
-                for key, value in doc.items():
-                    if key == "_id":
-                        serialized_doc["_id"] = str(value)
-                    elif isinstance(value, datetime):
-                        serialized_doc[key] = value.isoformat()
-                    elif isinstance(value, ObjectId):
-                        serialized_doc[key] = str(value)
-                    else:
-                        serialized_doc[key] = value
-                serialized_docs.append(serialized_doc)
+            # Serialize each document
+            serialized_docs = [serialize_value(doc) for doc in docs]
             backup_data["collections"][collection_name] = serialized_docs
         except Exception as e:
             backup_data["collections"][collection_name] = {"error": str(e)}
