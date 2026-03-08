@@ -358,4 +358,29 @@ export const createBackup = () => api.post('/admin/backup');
 export const downloadBackup = () => api.get('/admin/backup/download', { responseType: 'blob' });
 export const getBackupHistory = (limit: number = 10) => api.get('/admin/backup/history', { params: { limit } });
 
+// Monthly Dues Generator
+export const generateMonthlyDues = (data: {
+  year: number;
+  month: number;
+  maintenance_total: number;
+  repairs_capital_total: number;
+  security_total: number;
+  other_total: number;
+  hoa_dues_water: number;
+  hoa_dues_electricity: number;
+  notes?: string;
+}) => api.post('/billing/monthly-dues', data);
+
+export const getMonthlyDuesList = (year?: number) => 
+  api.get('/billing/monthly-dues', { params: year ? { year } : {} });
+
+export const getMonthlyDuesDetail = (duesId: string) => 
+  api.get(`/billing/monthly-dues/${duesId}`);
+
+export const postMonthlyDues = (duesId: string) => 
+  api.post(`/billing/monthly-dues/${duesId}/post`);
+
+export const deleteMonthlyDues = (duesId: string) => 
+  api.delete(`/billing/monthly-dues/${duesId}`);
+
 export default api;
