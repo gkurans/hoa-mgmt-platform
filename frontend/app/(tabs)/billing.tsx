@@ -794,6 +794,7 @@ export default function BillingScreen() {
           <View style={styles.tabs}>
             {[
               { key: 'allocation', label: 'Allocation', icon: 'calculator' },
+              { key: 'monthly', label: 'Monthly Dues', icon: 'calendar' },
               { key: 'payments', label: 'Payments', icon: 'card' },
               { key: 'expenses', label: 'Expenses', icon: 'cash' },
               { key: 'adjustments', label: 'Adjustments', icon: 'swap-horizontal' },
