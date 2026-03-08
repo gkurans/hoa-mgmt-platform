@@ -191,6 +191,8 @@ export const resetOwnerPassword = (id: string) => api.post(`/owners/${id}/reset-
 // Categories
 export const getCategories = () => api.get('/categories');
 export const createCategory = (data: any) => api.post('/categories', data);
+export const updateCategory = (categoryId: string, data: any) => api.put(`/categories/${categoryId}`, data);
+export const deleteCategory = (categoryId: string) => api.delete(`/categories/${categoryId}`);
 
 // Annual Setup
 export const getAnnualSetups = () => api.get('/billing/annual-setup');
