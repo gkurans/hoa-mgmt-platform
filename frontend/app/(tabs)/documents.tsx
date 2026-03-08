@@ -416,7 +416,7 @@ export default function DocumentsScreen() {
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
       } else {
-        // For native (iOS/Android): download with auth and use sharing
+        // For native (iOS/Android): use FileSystem.downloadAsync with auth headers
         const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
         const downloadUrl = `${API_URL}/api/documents/files/${file.id}/download`;
         
@@ -427,66 +427,92 @@ export default function DocumentsScreen() {
           return;
         }
         
+        // Create a safe filename (remove special characters)
+        const safeFilename = file.original_filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const fileUri = FileSystem.cacheDirectory + safeFilename;
+        
         // Show downloading indicator
         Alert.alert('Downloading', `Downloading ${file.original_filename}...`);
         
         try {
-          // Use fetch to download with proper auth headers
-          const response = await fetch(downloadUrl, {
-            method: 'GET',
+          // Use FileSystem.downloadAsync for more reliable downloads
+          const downloadResult = await FileSystem.downloadAsync(downloadUrl, fileUri, {
             headers: {
               'Authorization': `Bearer ${token}`,
             },
           });
           
-          if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Download failed:', response.status, errorText);
-            Alert.alert('Error', `Download failed: ${response.status}`);
+          if (downloadResult.status !== 200) {
+            console.error('Download failed with status:', downloadResult.status);
+            Alert.alert('Error', `Download failed: Server returned ${downloadResult.status}`);
             return;
           }
           
-          // Get the blob from response
-          const blob = await response.blob();
+          // Verify file was downloaded
+          const fileInfo = await FileSystem.getInfoAsync(downloadResult.uri);
+          if (!fileInfo.exists) {
+            Alert.alert('Error', 'Download failed - file not saved');
+            return;
+          }
           
-          // Convert blob to base64 using FileReader
-          const reader = new FileReader();
-          reader.onload = async () => {
-            try {
-              const base64Data = reader.result as string;
-              // Remove the data URL prefix to get pure base64
-              const base64Content = base64Data.split(',')[1];
-              
-              // Save to cache directory
-              const fileUri = FileSystem.cacheDirectory + file.original_filename;
-              await FileSystem.writeAsStringAsync(fileUri, base64Content, {
-                encoding: FileSystem.EncodingType.Base64,
-              });
-              
-              // Check if sharing is available
-              const isSharingAvailable = await Sharing.isAvailableAsync();
-              if (isSharingAvailable) {
-                // Open share dialog to save/open the file
-                await Sharing.shareAsync(fileUri, {
-                  mimeType: file.mime_type,
-                  dialogTitle: `Open ${file.original_filename}`,
-                });
-              } else {
-                Alert.alert('Success', `File saved to: ${fileUri}`);
-              }
-            } catch (saveError: any) {
-              console.error('Save error:', saveError);
-              Alert.alert('Error', 'Failed to save file');
+          // Check if sharing is available
+          const isSharingAvailable = await Sharing.isAvailableAsync();
+          if (isSharingAvailable) {
+            // Open share dialog to save/open the file
+            await Sharing.shareAsync(downloadResult.uri, {
+              mimeType: file.mime_type,
+              dialogTitle: `Open ${file.original_filename}`,
+            });
+          } else {
+            Alert.alert('Success', `File downloaded successfully!\nLocation: ${downloadResult.uri}`);
+          }
+          
+        } catch (downloadError: any) {
+          console.error('Download error details:', downloadError);
+          
+          // Fallback: Try fetch-based approach if downloadAsync fails
+          try {
+            console.log('Trying fallback fetch approach...');
+            const response = await fetch(downloadUrl, {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+              },
+            });
+            
+            if (!response.ok) {
+              Alert.alert('Error', `Download failed: ${response.status}`);
+              return;
             }
-          };
-          reader.onerror = () => {
-            Alert.alert('Error', 'Failed to process downloaded file');
-          };
-          reader.readAsDataURL(blob);
-          
-        } catch (fetchError: any) {
-          console.error('Fetch error:', fetchError);
-          Alert.alert('Error', `Download failed: ${fetchError.message}`);
+            
+            const blob = await response.blob();
+            
+            // Read blob as array buffer and write
+            const arrayBuffer = await blob.arrayBuffer();
+            const uint8Array = new Uint8Array(arrayBuffer);
+            let binary = '';
+            for (let i = 0; i < uint8Array.length; i++) {
+              binary += String.fromCharCode(uint8Array[i]);
+            }
+            const base64Content = btoa(binary);
+            
+            await FileSystem.writeAsStringAsync(fileUri, base64Content, {
+              encoding: FileSystem.EncodingType.Base64,
+            });
+            
+            const isSharingAvailable = await Sharing.isAvailableAsync();
+            if (isSharingAvailable) {
+              await Sharing.shareAsync(fileUri, {
+                mimeType: file.mime_type,
+                dialogTitle: `Open ${file.original_filename}`,
+              });
+            } else {
+              Alert.alert('Success', `File saved to: ${fileUri}`);
+            }
+          } catch (fallbackError: any) {
+            console.error('Fallback download also failed:', fallbackError);
+            Alert.alert('Error', `Download failed: ${fallbackError.message || 'Unknown error'}`);
+          }
         }
       }
     } catch (error: any) {
