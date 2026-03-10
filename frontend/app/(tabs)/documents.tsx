@@ -100,7 +100,7 @@ const formatDate = (dateString: string): string => {
 };
 
 export default function DocumentsScreen() {
-  const { isAdmin } = useAuthStore();
+  const { user, isAdmin } = useAuthStore();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [uploading, setUploading] = useState(false);
