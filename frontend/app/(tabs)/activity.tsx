@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getAuditLogs, getUnits } from '../../src/services/api';
+import { useAuthStore } from '../../src/store/authStore';
 import Card from '../../src/components/Card';
 import LoadingSpinner from '../../src/components/LoadingSpinner';
 
