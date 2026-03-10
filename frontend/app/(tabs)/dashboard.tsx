@@ -61,6 +61,12 @@ export default function DashboardScreen() {
   const [backupLoading, setBackupLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
+    // Don't fetch if user is not logged in
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+    
     try {
       // Fetch system status first
       try {
