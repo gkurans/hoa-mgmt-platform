@@ -104,6 +104,7 @@ const DATE_RANGE_OPTIONS = [
 ];
 
 export default function ActivityScreen() {
+  const { user } = useAuthStore();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [loading, setLoading] = useState(true);
