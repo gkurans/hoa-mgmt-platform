@@ -102,6 +102,12 @@ export default function UnitsScreen() {
   });
 
   const fetchData = useCallback(async () => {
+    // Don't fetch if user is not logged in
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+    
     try {
       const [unitsRes, ownersRes] = await Promise.all([getUnits(), getOwners()]);
       setUnits(unitsRes.data);
@@ -112,7 +118,7 @@ export default function UnitsScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     fetchData();
