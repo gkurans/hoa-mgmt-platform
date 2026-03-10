@@ -2299,27 +2299,25 @@ export default function BillingScreen() {
               
               {/* Category Selection */}
               <Text style={styles.sectionLabel}>Change Category</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
-                <View style={styles.categoryButtons}>
-                  {categories.map(cat => (
-                    <TouchableOpacity
-                      key={cat.id}
-                      style={[
-                        styles.categoryButton,
-                        editExpenseForm.category_id === cat.id && styles.categoryButtonActive
-                      ]}
-                      onPress={() => setEditExpenseForm({ ...editExpenseForm, category_id: cat.id })}
-                    >
-                      <Text style={[
-                        styles.categoryButtonText,
-                        editExpenseForm.category_id === cat.id && styles.categoryButtonTextActive
-                      ]}>
-                        {cat.name}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </ScrollView>
+              <View style={styles.categoryGrid}>
+                {categories.map(cat => (
+                  <TouchableOpacity
+                    key={cat.id}
+                    style={[
+                      styles.categoryButton,
+                      editExpenseForm.category_id === cat.id && styles.categoryButtonActive
+                    ]}
+                    onPress={() => setEditExpenseForm({ ...editExpenseForm, category_id: cat.id })}
+                  >
+                    <Text style={[
+                      styles.categoryButtonText,
+                      editExpenseForm.category_id === cat.id && styles.categoryButtonTextActive
+                    ]}>
+                      {cat.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
               
               <View style={styles.reasonSection}>
                 <Text style={styles.reasonLabel}>Reason for Edit *</Text>
