@@ -299,6 +299,12 @@ export default function BillingScreen() {
   };
 
   const fetchData = useCallback(async () => {
+    // Don't fetch if user is not logged in
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+    
     try {
       const [setupsRes, unitsRes, categoriesRes, expensesRes, adjustmentsRes, paymentsRes, monthlyDuesRes] = await Promise.all([
         getAnnualSetups(),
@@ -322,7 +328,7 @@ export default function BillingScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [isAdminUser]);
+  }, [isAdminUser, user]);
 
   useEffect(() => {
     fetchData();
