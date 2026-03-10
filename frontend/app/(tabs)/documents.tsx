@@ -127,6 +127,12 @@ export default function DocumentsScreen() {
   const [uploadDescription, setUploadDescription] = useState('');
 
   const fetchData = useCallback(async () => {
+    // Don't fetch if user is not logged in
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+    
     try {
       setRefreshing(true);
       const [foldersRes, filesRes] = await Promise.all([
@@ -148,7 +154,7 @@ export default function DocumentsScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [currentFolderId]);
+  }, [currentFolderId, user]);
 
   useEffect(() => {
     fetchData();
