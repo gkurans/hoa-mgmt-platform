@@ -169,6 +169,12 @@ export default function BoardScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchData = useCallback(async () => {
+    // Don't fetch if user is not logged in
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+    
     try {
       const [leadershipRes, committeeRes, historyRes, decisionsRes, ownersRes] = await Promise.all([
         getCurrentLeadership(),
@@ -189,7 +195,7 @@ export default function BoardScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     fetchData();
