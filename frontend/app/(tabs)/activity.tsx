@@ -152,6 +152,12 @@ export default function ActivityScreen() {
   };
 
   const fetchData = useCallback(async () => {
+    // Don't fetch if user is not logged in
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+    
     try {
       const params: any = { limit: 200 };
       if (activeFilters.entityType) params.entity_type = activeFilters.entityType;
@@ -172,7 +178,7 @@ export default function ActivityScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [activeFilters]);
+  }, [activeFilters, user]);
 
   useEffect(() => {
     fetchData();
