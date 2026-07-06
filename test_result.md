@@ -105,6 +105,26 @@
 user_problem_statement: "Build a Kerala HOA Management System with unit/owner management, billing, utility allocation using Kerala HOA formula (Condo = W/5 + 0.40E/5 + 0.60E/8, Shop = 0.60E/8), year-end true-up reports, and mobile app"
 
 backend:
+  - task: "Billing lists show all records (Adjustments 500 fix)"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: false
+        agent: "user"
+        comment: "After entering new vendor payments and adjustments, Billing tabs (Payment History, Expenses, Vendor Payments, Adjustments) all appeared empty, though Home dashboard totals updated correctly."
+      - working: true
+        agent: "main"
+        comment: "ROOT CAUSE: AdjustmentResponse Pydantic model had extra required fields mistakenly added (payment_date, method, reference, notes, recorded_by, duplicate created_at) which are not populated by GET /api/adjustments, causing a 500 validation error. Frontend billing.tsx fetches payments/expenses/adjustments via a single Promise.all, so the one 500 rejected the whole batch and left ALL billing tabs empty. Dashboard uses separate aggregation and was unaffected. FIX: removed the erroneous extra fields from AdjustmentResponse (schema-only change, no data touched). Verified live: /api/payments=200(2), /api/expenses=200(9), /api/adjustments=200(2), /api/charges=200(10). No historical data lost."
+      - working: true
+        agent: "testing"
+        comment: "✅ REGRESSION TEST PASSED (8/8 tests). Authenticated with admin@unitytowers.com/admin123. Verified: GET /api/adjustments returns 200 with 2 records (all required fields: id, unit_id, unit_display, category_id, category_name, amount, adjustment_type, reason, period, created_by, created_at present). GET /api/payments=200(2 records), GET /api/expenses=200(9 records), GET /api/charges=200(10 records), GET /api/dashboard/admin=200(all totals fields present). POST /api/adjustments successfully created new adjustment and verified it appears in list (count 2→3). NO 500 ERRORS on any billing endpoints. Bug fix verified - AdjustmentResponse model correctly has only required fields, no extra payment_date/method/reference/notes/recorded_by fields causing validation errors."
+
+
+backend:
   - task: "Authentication (Login/Register)"
     implemented: true
     working: true
@@ -336,3 +356,5 @@ agent_communication:
     message: "✅ COMPREHENSIVE BACKEND TESTING COMPLETED - All 9 core API test suites passed successfully. Verified: Authentication (login/register/me), Unit Management (8 units: 5 condos + 3 shops), Kerala HOA Formula (Condo=₹25,500, Shop=₹7,500 with W=50k, E=100k), Complete Billing Workflow (setup→approve→post charges), Payment Recording & Balance Updates, True-Up Reports, Admin Dashboard, and Charges Management. Formula calculations are mathematically correct and all endpoints return proper responses. Backend is production-ready."
   - agent: "testing"
     message: "✅ COMPREHENSIVE FRONTEND UI TESTING COMPLETED - All 6 UI flow test suites passed successfully on mobile viewport (390x844). Verified: Login Flow (Unity Towers branding, demo credentials admin@keralahoa.com/admin123, successful redirect), Dashboard (Total Units: 8, Condos: 5, Shops: 3, Outstanding: ₹1,24,500.00, Status: POSTED), Units Tab (all 8 units listed with balances, Assign modal functional), Billing Tab (Annual Allocation & Record Payment tabs, Unity Towers formula, 2026 setup), Reports Tab (Year-End True-Up Report, year selector 2024-2027, status badges CREDIT/DUE), Profile Tab (HOA Administrator, Unity Towers Property Association info, logout confirmation). Frontend is production-ready and mobile-responsive."
+  - agent: "testing"
+    message: "✅ REGRESSION TEST COMPLETED (8/8 PASSED) - Bug fix for AdjustmentResponse 500 error verified successfully. Tested with admin@unitytowers.com credentials. All billing endpoints (adjustments, payments, expenses, charges) return 200 OK with correct data. Created new adjustment and verified it appears in list. NO 500 ERRORS detected. The fix (removing extra required fields from AdjustmentResponse model) is working correctly. All billing tabs should now display data properly on frontend."

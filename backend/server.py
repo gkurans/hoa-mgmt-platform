@@ -322,12 +322,6 @@ class AdjustmentResponse(BaseModel):
     period: str
     created_by: str
     created_at: datetime
-    payment_date: str
-    method: str
-    reference: str
-    notes: str
-    recorded_by: str
-    created_at: datetime
 
 # Report Models
 class TrueUpReportItem(BaseModel):
