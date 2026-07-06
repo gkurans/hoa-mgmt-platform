@@ -105,6 +105,26 @@
 user_problem_statement: "Build a Kerala HOA Management System with unit/owner management, billing, utility allocation using Kerala HOA formula (Condo = W/5 + 0.40E/5 + 0.60E/8, Shop = 0.60E/8), year-end true-up reports, and mobile app"
 
 backend:
+  - task: "True-Up Report includes adjustments (Unit 2A discrepancy fix)"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: false
+        agent: "user"
+        comment: "Reports section did not include adjustment amounts for Unit 2A, so report balance did not match Unit Details / Billing. Only Unit 2A affected."
+      - working: true
+        agent: "main"
+        comment: "ROOT CAUSE: get_true_up_report filtered charges with period regex ^{year}. Adjustments auto-create a charge using the admin's FREE-TEXT period. Unit 2A adjustments used periods like 'July 1 - 3, 2026' and 'July Maintenance ' which do NOT start with '2026', so the report excluded them (understated total_assessed by 8630.815). Other units used '2026 July 1-3' which matches ^2026, so they were unaffected. Balances (current_balance) were always correct because adjustments $inc the unit balance directly. FIX: broadened report charge/payment queries to match year on period OR due_date prefix OR created_at within the year range (consistent with dashboard/current_balance). Reconciliation: report net_balance now equals current_balance for ALL 8 units (2A=8530.405 matches). No data modified, no regressions."
+      - working: true
+        agent: "testing"
+        comment: "✅ BUG FIX VERIFIED (3/3 tests passed). Authenticated with admin@unitytowers.com/admin123. TEST 1 - RECONCILIATION: GET /api/reports/true-up/2026 returns 200. ALL 8 UNITS RECONCILED PERFECTLY (net_balance == current_balance, difference = 0.0000 for all units). Unit 2A net_balance = ₹8,530.405 (matches expected value exactly), Unit 2A current_balance = ₹8,530.405 (RECONCILED). All other units (2B, 3A, 3B, Pent House, Show Room, 1A, 1B) also reconciled with 0.0000 difference. TEST 2 - REPORT TOTALS: All required fields present (year, generated_at, items, total_outstanding, total_credits). Total Outstanding: ₹89,220.11, Total Credits: ₹0.00. Totals calculation verified correct. TEST 3 - REGRESSION: GET /api/dashboard/admin=200 (totals present), GET /api/adjustments=200 (11 records), GET /api/payments=200 (2 records), GET /api/expenses=200 (9 records), GET /api/charges=200 (19 records). NO ERRORS. Bug fix working perfectly - adjustments with free-text periods (e.g. 'July 1 - 3, 2026') are now correctly included in True-Up Report via created_at fallback matching."
+
+
+backend:
   - task: "Billing lists show all records (Adjustments 500 fix)"
     implemented: true
     working: true
@@ -358,3 +378,5 @@ agent_communication:
     message: "✅ COMPREHENSIVE FRONTEND UI TESTING COMPLETED - All 6 UI flow test suites passed successfully on mobile viewport (390x844). Verified: Login Flow (Unity Towers branding, demo credentials admin@keralahoa.com/admin123, successful redirect), Dashboard (Total Units: 8, Condos: 5, Shops: 3, Outstanding: ₹1,24,500.00, Status: POSTED), Units Tab (all 8 units listed with balances, Assign modal functional), Billing Tab (Annual Allocation & Record Payment tabs, Unity Towers formula, 2026 setup), Reports Tab (Year-End True-Up Report, year selector 2024-2027, status badges CREDIT/DUE), Profile Tab (HOA Administrator, Unity Towers Property Association info, logout confirmation). Frontend is production-ready and mobile-responsive."
   - agent: "testing"
     message: "✅ REGRESSION TEST COMPLETED (8/8 PASSED) - Bug fix for AdjustmentResponse 500 error verified successfully. Tested with admin@unitytowers.com credentials. All billing endpoints (adjustments, payments, expenses, charges) return 200 OK with correct data. Created new adjustment and verified it appears in list. NO 500 ERRORS detected. The fix (removing extra required fields from AdjustmentResponse model) is working correctly. All billing tabs should now display data properly on frontend."
+  - agent: "testing"
+    message: "✅ TRUE-UP REPORT BUG FIX VERIFIED (3/3 TESTS PASSED) - Unit 2A adjustment reconciliation bug fix confirmed working. All 8 units now reconcile perfectly (net_balance == current_balance with 0.0000 difference). Unit 2A net_balance = ₹8,530.405 matches expected value and current_balance exactly. The fix (broadened charge/payment queries to match year on period OR due_date OR created_at) successfully includes adjustments with free-text periods like 'July 1 - 3, 2026' that don't start with the year. Report totals verified correct (Total Outstanding: ₹89,220.11, Total Credits: ₹0.00). All regression endpoints working (dashboard, adjustments, payments, expenses, charges all return 200 OK). NO ERRORS. Bug fix complete and verified."

@@ -2230,21 +2230,39 @@ async def get_true_up_report(year: int, user: dict = Depends(get_current_user)):
     total_outstanding = 0
     total_credits = 0
     
+    # Year boundaries for created_at fallback (handles adjustments whose
+    # free-text `period` does not start with the year string).
+    year_start = datetime(year, 1, 1)
+    year_end = datetime(year + 1, 1, 1)
+
     for unit in units:
         unit_id = str(unit["_id"])
         
-        # Get all charges for this unit for the year
+        # Get all charges for this unit for the year.
+        # Match the year on period OR due_date prefix, OR fall back to the
+        # created_at year. Adjustments store a free-text period (e.g.
+        # "July 1 - 3, 2026") that may not start with the year, so relying on
+        # period alone previously excluded them from the report while they were
+        # still counted in the unit balance. The created_at fallback keeps the
+        # report consistent with Unit Details / Billing (current_balance).
         charges = await db.charges.find({
             "unit_id": unit_id,
-            "period": {"$regex": f"^{year}"}
+            "$or": [
+                {"period": {"$regex": f"^{year}"}},
+                {"due_date": {"$regex": f"^{year}"}},
+                {"created_at": {"$gte": year_start, "$lt": year_end}},
+            ]
         }).to_list(1000)
         
         total_assessed = sum(c["amount"] for c in charges)
         
-        # Get all payments for this unit for the year
+        # Get all payments for this unit for the year (same robust matching)
         payments = await db.payments.find({
             "unit_id": unit_id,
-            "payment_date": {"$regex": f"^{year}"}
+            "$or": [
+                {"payment_date": {"$regex": f"^{year}"}},
+                {"created_at": {"$gte": year_start, "$lt": year_end}},
+            ]
         }).to_list(1000)
         
         total_paid = sum(p["amount"] for p in payments)
