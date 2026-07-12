@@ -2230,44 +2230,63 @@ async def get_true_up_report(year: int, user: dict = Depends(get_current_user)):
     total_outstanding = 0
     total_credits = 0
     
-    # Year boundaries for created_at fallback (handles adjustments whose
-    # free-text `period` does not start with the year string).
+    # ACCOUNTING MODEL
+    # -----------------
+    # The reporting year of every transaction is determined SOLELY by its
+    # official accounting date, which for this system is `created_at` (the
+    # posting date). The `period` field is descriptive metadata only and is
+    # NEVER used to assign a transaction to a year. This guarantees:
+    #   * a transaction is counted in exactly one year (no double-count / omission)
+    #   * editing the descriptive `period` text cannot change historical reports
+    #   * back-dated entries land in the year they were posted
+    #
+    # Opening balance for year N is derived dynamically as the closing balance
+    # of year N-1, i.e. the unit's day-zero baseline plus every transaction
+    # posted BEFORE the year starts. This makes carry-forward automatic and
+    # every historical report perfectly reproducible.
     year_start = datetime(year, 1, 1)
     year_end = datetime(year + 1, 1, 1)
 
     for unit in units:
         unit_id = str(unit["_id"])
-        
-        # Get all charges for this unit for the year.
-        # Match the year on period OR due_date prefix, OR fall back to the
-        # created_at year. Adjustments store a free-text period (e.g.
-        # "July 1 - 3, 2026") that may not start with the year, so relying on
-        # period alone previously excluded them from the report while they were
-        # still counted in the unit balance. The created_at fallback keeps the
-        # report consistent with Unit Details / Billing (current_balance).
+
+        # Immutable day-zero baseline (balance that existed before the system
+        # began tracking transactions). Never mutated by reporting.
+        baseline_opening = unit.get("opening_balance", 0.0)
+
+        # Opening balance (year N) = Closing balance (year N-1)
+        # = baseline + all charges/adjustments posted before the year
+        #            - all payments posted before the year.
+        prior_charges = await db.charges.find({
+            "unit_id": unit_id,
+            "created_at": {"$lt": year_start}
+        }).to_list(100000)
+        prior_payments = await db.payments.find({
+            "unit_id": unit_id,
+            "created_at": {"$lt": year_start}
+        }).to_list(100000)
+        opening_balance = (
+            baseline_opening
+            + sum(c["amount"] for c in prior_charges)
+            - sum(p["amount"] for p in prior_payments)
+        )
+
+        # Current-year charges (includes adjustments, which are stored as
+        # charge records with source="adjustment", and any credits/debits).
         charges = await db.charges.find({
             "unit_id": unit_id,
-            "$or": [
-                {"period": {"$regex": f"^{year}"}},
-                {"due_date": {"$regex": f"^{year}"}},
-                {"created_at": {"$gte": year_start, "$lt": year_end}},
-            ]
-        }).to_list(1000)
-        
+            "created_at": {"$gte": year_start, "$lt": year_end}
+        }).to_list(100000)
         total_assessed = sum(c["amount"] for c in charges)
-        
-        # Get all payments for this unit for the year (same robust matching)
+
+        # Current-year payments.
         payments = await db.payments.find({
             "unit_id": unit_id,
-            "$or": [
-                {"payment_date": {"$regex": f"^{year}"}},
-                {"created_at": {"$gte": year_start, "$lt": year_end}},
-            ]
-        }).to_list(1000)
-        
+            "created_at": {"$gte": year_start, "$lt": year_end}
+        }).to_list(100000)
         total_paid = sum(p["amount"] for p in payments)
-        
-        opening_balance = unit.get("opening_balance", 0.0)
+
+        # Closing balance = Opening + Charges + Adjustments +/- Credits/Debits - Payments
         net_balance = opening_balance + total_assessed - total_paid
         
         if net_balance > 0:
@@ -2300,26 +2319,32 @@ async def get_true_up_report(year: int, user: dict = Depends(get_current_user)):
 
 @api_router.post("/reports/carry-forward/{year}")
 async def carry_forward_balances(year: int, user: dict = Depends(require_admin)):
-    """Carry forward balances to next year"""
+    """Carry-forward is now AUTOMATIC.
+
+    The True-Up report derives each year's opening balance as the closing
+    balance of the previous year directly from transaction history, so no
+    manual carry-forward step is required. This endpoint is retained for
+    backward compatibility but intentionally performs NO writes, because
+    overwriting the immutable day-zero `opening_balance` baseline would
+    double-count historical activity and corrupt reports.
+    """
     units = await db.units.find().to_list(100)
-    updated = 0
-    
-    for unit in units:
-        current_balance = unit.get("current_balance", 0.0)
-        
-        # Set current balance as next year's opening balance
-        await db.units.update_one(
-            {"_id": unit["_id"]},
-            {"$set": {
-                "opening_balance": current_balance,
-                "current_balance": current_balance
-            }}
-        )
-        updated += 1
-    
-    await log_audit("system", "carry_forward", "execute", None, {"year": year, "units": updated}, str(user["_id"]))
-    
-    return {"message": f"Carried forward balances for {updated} units to {year + 1}"}
+
+    await log_audit(
+        "system", "carry_forward", "noop",
+        None, {"year": year, "note": "carry-forward is automatic; no changes made"},
+        str(user["_id"])
+    )
+
+    return {
+        "message": (
+            "Carry-forward is automatic. Each year's opening balance is derived "
+            "from the prior year's closing balance in the True-Up report. No "
+            "balances were modified."
+        ),
+        "units": len(units),
+        "automatic": True
+    }
 
 # ============== DASHBOARD ROUTES ==============
 

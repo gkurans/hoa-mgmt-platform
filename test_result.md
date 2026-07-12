@@ -105,6 +105,22 @@
 user_problem_statement: "Build a Kerala HOA Management System with unit/owner management, billing, utility allocation using Kerala HOA formula (Condo = W/5 + 0.40E/5 + 0.60E/8, Shop = 0.60E/8), year-end true-up reports, and mobile app"
 
 backend:
+  - task: "True-Up accounting model: created_at year assignment + automatic carry-forward"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Reworked get_true_up_report to (1) assign every transaction to a year SOLELY by its accounting date (created_at); period is now descriptive-only and never used for year matching (removed the period/due_date $or). (2) Opening balance for year N is derived dynamically = day-zero baseline + all charges/adjustments posted before Jan 1 N - all payments before Jan 1 N, i.e. Opening(N)=Closing(N-1), automatic carry-forward, reproducible historical reports. (3) net_balance = opening + charges(incl adjustments) - payments = closing balance. Neutralized POST /reports/carry-forward to a safe no-op (was overwriting opening_balance, which would double-count under the new model). No DB data modified (user approved created_at-based approach, no backfill). VALIDATION (script, since removed): 2026 net == current_balance for all 8 units; 2025 report all-zero (no prior data); 2027 opening == 2026 closing (carry-forward proven); editing period text does NOT change the 2026 report (period-independence); 0 charges/payments missing created_at. All PASS."
+      - working: true
+        agent: "testing"
+        comment: "✅ COMPREHENSIVE VERIFICATION COMPLETE (5/5 tests PASSED). Authenticated with admin@unitytowers.com/admin123. TEST 1 - 2026 RECONCILIATION: GET /api/reports/true-up/2026 returns 200. ALL 8 UNITS RECONCILED PERFECTLY (net_balance == current_balance, difference = 0.0000 for all units). Unit 2A net_balance = ₹8,530.405 (matches expected value exactly). TEST 2 - 2025 EMPTY YEAR: GET /api/reports/true-up/2025 returns 200. All 8 units have opening_balance=0, total_assessed=0, total_paid=0, net_balance=0 (proves no data existed before 2026). TEST 3 - 2027 AUTOMATIC CARRY-FORWARD: GET /api/reports/true-up/2027 returns 200. For all 8 units, opening_2027 == closing_2026 (proves Opening(N)=Closing(N-1) automatic carry-forward). All units have total_assessed=0, total_paid=0, net_balance=opening_balance (no activity in 2027). TEST 4 - CARRY-FORWARD NO-OP: POST /api/reports/carry-forward/2026 returns 200 with automatic:true. Verified ALL unit balances (current_balance and opening_balance) remained UNCHANGED after call. Unit 2A current_balance still ₹8,530.405, opening_balance still 0. Proves endpoint is a safe non-destructive no-op. TEST 5 - REGRESSION: GET /api/dashboard/admin=200, GET /api/adjustments=200(11 records), GET /api/payments=200(2 records), GET /api/expenses=200(9 records), GET /api/charges=200(19 records). NO ERRORS. Accounting model rework fully verified and working correctly."
+
+backend:
   - task: "True-Up Report includes adjustments (Unit 2A discrepancy fix)"
     implemented: true
     working: true
@@ -380,3 +396,5 @@ agent_communication:
     message: "✅ REGRESSION TEST COMPLETED (8/8 PASSED) - Bug fix for AdjustmentResponse 500 error verified successfully. Tested with admin@unitytowers.com credentials. All billing endpoints (adjustments, payments, expenses, charges) return 200 OK with correct data. Created new adjustment and verified it appears in list. NO 500 ERRORS detected. The fix (removing extra required fields from AdjustmentResponse model) is working correctly. All billing tabs should now display data properly on frontend."
   - agent: "testing"
     message: "✅ TRUE-UP REPORT BUG FIX VERIFIED (3/3 TESTS PASSED) - Unit 2A adjustment reconciliation bug fix confirmed working. All 8 units now reconcile perfectly (net_balance == current_balance with 0.0000 difference). Unit 2A net_balance = ₹8,530.405 matches expected value and current_balance exactly. The fix (broadened charge/payment queries to match year on period OR due_date OR created_at) successfully includes adjustments with free-text periods like 'July 1 - 3, 2026' that don't start with the year. Report totals verified correct (Total Outstanding: ₹89,220.11, Total Credits: ₹0.00). All regression endpoints working (dashboard, adjustments, payments, expenses, charges all return 200 OK). NO ERRORS. Bug fix complete and verified."
+  - agent: "testing"
+    message: "✅ ACCOUNTING MODEL REWORK VERIFIED (5/5 TESTS PASSED) - Tested reworked True-Up accounting model with admin@unitytowers.com/admin123. TEST 1: GET /api/reports/true-up/2026 returns 200, all 8 units reconciled perfectly (net_balance == current_balance, 0.0000 difference), Unit 2A net_balance = ₹8,530.405 (exact match). TEST 2: GET /api/reports/true-up/2025 returns 200, all units have opening=0, assessed=0, paid=0, net=0 (no prior data). TEST 3: GET /api/reports/true-up/2027 returns 200, all units opening_2027 == closing_2026 (automatic carry-forward proven), assessed=0, paid=0. TEST 4: POST /api/reports/carry-forward/2026 returns 200 with automatic:true, ALL unit balances (current_balance and opening_balance) UNCHANGED (safe no-op verified), Unit 2A still ₹8,530.405/0. TEST 5: All regression endpoints return 200 (dashboard/admin, adjustments(11), payments(2), expenses(9), charges(19)). NO ERRORS. Accounting model using created_at for year assignment and automatic carry-forward Opening(N)=Closing(N-1) is working perfectly. NO unit balances were modified by carry-forward endpoint."
